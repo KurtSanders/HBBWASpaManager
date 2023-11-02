@@ -2,6 +2,9 @@
  *  Hubitat BWA Spa Manager
  *  -> Switch Device Driver
  *
+ *  Copyright 2023 Kurt Sannders
+ *   based on work Copyright 2020 Richard Powell that he did for Hubitat
+ *
  *  Copyright 2020 Richard Powell
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
@@ -23,18 +26,18 @@ import groovy.transform.Field
 
 @Field static int LOG_LEVEL = 3
 
-@Field static String NAMESPACE = "richardpowellus"
+@Field static String NAMESPACE = "kurtsanders"
 
 @Field static String SWITCH_CHILD_DEVICE_NAME_PREFIX = "HB BWA SPA Switch"
 
 metadata {
-    definition (name: SWITCH_CHILD_DEVICE_NAME_PREFIX, namespace: NAMESPACE, author: "Richard Powell") {
+    definition (name: SWITCH_CHILD_DEVICE_NAME_PREFIX, namespace: NAMESPACE, author: "Kurt Sanders") {
         capability "Switch"
         capability "Refresh"
-        
+
         attribute "switch", "enum", ["on", "off"]
         attribute "balboaAPIButtonNumber", "number"
-        
+
         command "on"
         command "off"
     }
@@ -62,7 +65,7 @@ void parse(input) {
             sendEvent(name: "switch", value: "off")
             break;
     }
-    
+
 }
 
 void installed() {

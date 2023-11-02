@@ -2,6 +2,9 @@
  *  Hubitat BWA Spa Manager
  *  -> App
  *
+ *  Copyright 2023 Kurt Sannders
+ *   based on work Copyright 2020 Richard Powell that he did for Hubitat
+ *
  *  Copyright 2020 Richard Powell
  *   based on work Copyright 2020 Nathan Spencer that he did for SmartThings
  *
@@ -13,31 +16,38 @@
  *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
- *  
+ *
  *  CHANGE HISTORY
  *  VERSION     DATE            NOTES
  *  0.9.0       2020-01-30      Initial release with basic access and control of spas
  *  1.0.0       2020-01-31      Updated icons and bumped version to match DTH version
  *  1.0.1b      2020-09-17      Modified to now work with Hubitat
  *  1.1.0       2020-10-11      Major rewrite: Now downloads hot tub config, supports child devices, major refactoring, etc.
- *
+ *  1.2.0       2023-11-11      V1.2.0 code stream maintained by Kurt Sanders
+ *                              Moved hardcoded logging in app to UI preferences and
+ *                              Added logging expire timeout logic
+ *                              Added App to HPM Public Install App
  */
 
 import groovy.transform.Field
 
-@Field static int LOG_LEVEL = 2
-
-@Field static String NAMESPACE = "richardpowellus"
+@Field static String AUTHOR_NAME               = "Kurt Sanders"
+@Field static String NAMESPACE                 = "kurtsanders"
+@Field static String PARENT_DEVICE_NAME        = "BWA Spa Manager"
+@Field static final String VERSION             = "1.2.0"
+@Field static final String COMM_LINK           = "https://community.hubitat.com/t/balboa-spa-controller-app/18194/45"
+@Field static final String GITHUB_LINK         = "https://github.com/KurtSanders/HBBWASpaManager"
+@Field static final String GITHUB_IMAGES_LINK  = "https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/master/images"
 
 definition(
-    name: "BWA Spa Manager",
-    namespace: NAMESPACE,
-    author: "Richard Powell",
+    name: PARENT_DEVICE_NAME,
+    namespace: AUTHOR_NAME,
+    author: "Kurt Sanders",
     description: "Access and control your BWA Spa.",
     category: "Health & Wellness",
-    iconUrl: "https://raw.githubusercontent.com/richardpowellus/HBBWASpaManager/master/images/hot-tub.png",
-    iconX2Url: "https://raw.githubusercontent.com/richardpowellus/HBBWASpaManager/master/images/hot-tub.png",
-    iconX3Url: "https://raw.githubusercontent.com/richardpowellus/HBBWASpaManager/master/images/hot-tub.png",
+    iconUrl:   "${GITHUB_IMAGES_LINK}/hot-tub.png",
+    iconX2Url: "${GITHUB_IMAGES_LINK}/hot-tub.png",
+    iconX3Url: "${GITHUB_IMAGES_LINK}/hot-tub.png",
     singleInstance: false
 ) {
 }
@@ -59,56 +69,65 @@ preferences {
     "deviceDisplayName"
 */
 
-def logMessage(level, message) {
-    if (level >= LOG_LEVEL) {
-        if (level < 3) {
-            log.debug message
-        } else {
-            log.info message
-        }
-    }
-}
-
 def confirmPage() {
-    def spaConfiguration = ParseDeviceConfigurationData(getDeviceConfiguration(state.spa["deviceId"]))
-    logMessage(2, "confirmPage() spaConfiguration.dump(): ${spaConfiguration}")
-    
+    def devConfig = getDeviceConfiguration(state.spa["deviceId"])
+    logDebug "==> devConfig.decodeBase64()= ${devConfig.decodeBase64()}"
+
+    def spaConfiguration = ParseDeviceConfigurationData(devConfig)
+    logDebug "==> spaConfiguration= ${spaConfiguration}"
+
+    def deviceCount = spaConfiguration.count { key, value -> value == true }
+    logDebug "confirmPage() spaConfiguration.dump(): ${spaConfiguration}"
+
     state.spaConfiguration = spaConfiguration
-    
+
     dynamicPage(name: "confirmPage", uninstall: true, install: true) {
-        section ("Name your BWA Spa Device") {
-            input(name: "spaParentDeviceName", type: "text", title: "Spa Parent Device Name:", required: false, defaultValue: state.spa["deviceDisplayName"], description: state.spa["deviceDisplayName"])
+        section (sectionHeader("Name your BWA Spa Device")) {
+            input(name: "spaParentDeviceName", type: "text", title: fmtTitle("Spa Parent Device Name:"), required: false, defaultValue: state.spa["deviceDisplayName"], description: fmtDesc(state.spa["deviceDisplayName"]))
         }
-        section("Found the following devices attached to your hot tub") {
+        section(sectionHeader("Found the following ${deviceCount} devices attached to your hot tub")) {
+            def index = 1
             spaConfiguration.each { k, v ->
                 if (v == true) {
-                    paragraph("    ${k}")
+                    paragraph("${index++}. ${k}")
                 }
             }
         }
     }
 }
 
+
 def mainPage() {
     // Get spa if we don't have it already
     if (state.spa == null && state.token?.trim()) {
         getSpa()
     }
-            
+
     dynamicPage(name: "mainPage", nextPage: "confirmPage", uninstall: false, install: false) {
         if (state.spa) {
-            section("Found the following Spa (you can change the device name in the next step):") {
-                paragraph("${state.spa["deviceDisplayName"]}")
+            //Help Link
+            section () {
+                input name: "helpInfo", type: "hidden", title: fmtHelpInfo("Hubitat Community Link to ${app.name}")
             }
-            section("How frequently do you want to poll the BWA cloud for changes? (Use a lower number if you care about trying to capture and respond to \"change\" events as they happen)") {
-                input(name: "pollingInterval", title: "Polling Interval (in Minutes)", type: "enum", required: true, multiple: false, defaultValue: 5, options: ["1", "5", "10", "15", "30"])
-            }              
-        }  
-        section("BWA Authentication") {
-            href("authPage", title: "Cloud Authorization", description: "${state.credentialStatus ? state.credentialStatus+"\n" : ""}Click to enter BWA credentials")
+            section(sectionHeader("Found the following Spa (you can change the device name on the next page:")) {
+                paragraph("${state.spa["deviceDisplayName"]} ${getImage("checkMarkGreen")}")
+            }
+            section(sectionHeader("BWA Authentication")) {
+                href("authPage", title: fmtTitle("Cloud Authorization"), description: fmtDesc("${state.credentialStatus ? state.credentialStatus+"\n" : ""}Click to enter BWA credentials"))
+            }
+            section(sectionHeader("How frequently do you want to poll the BWA cloud for changes? (Use a lower number if you care about trying to capture and respond to \"change\" events as they happen)")) {
+                input(name: "pollingInterval", title: fmtTitle("Polling Interval (in Minutes)"), type: "enum", required: true, multiple: false, defaultValue: 5, options: ["1", "5", "10", "15", "30"])
+                input name: "pollingModes", type: "mode", title: fmtTitle("Poll BWA cloud only when in one of these modes"),required: true, defaultValue: location.mode, multiple: true, submitOnChange: false            }
         }
-        section ("Name this instance of ${app.name}") {
-            label name: "name", title: "Assign a name", required: false, defaultValue: app.name, description: app.name, submitOnChange: true
+        section(sectionHeader("BWA Logging Options")) {
+            //Logging Options
+            input name: "logLevel", type: "enum", title: fmtTitle("Logging Level"),
+                description: fmtDesc("Logs selected level and above"), defaultValue: 0, options: LOG_LEVELS
+            input name: "logLevelTime", type: "enum", title: fmtTitle("Logging Level Time"),
+                description: fmtDesc("Time to enable Debug/Trace logging"),defaultValue: 0, options: LOG_TIMES
+        }
+        section (sectionHeader("Name this instance of ${app.name}")) {
+            label name: "name", title: fmtTitle("Assign a name for this app"), required: false, defaultValue: app.name, description: fmtDesc(app.name), submitOnChange: true
         }
     }
 }
@@ -116,28 +135,28 @@ def mainPage() {
 def authPage() {
     dynamicPage(name: "authPage", nextPage: "authResultPage", uninstall: false, install: false) {
         section("BWA Credentials") {
-            input("username", "username", title: "User ID", description: "BWA User ID", required: true)
-            input("password", "password", title: "Password", description: "BWA Password", required: true)
+            input("username", "username", title: fmtTitle("User ID"), description: fmtDesc("BWA User ID"), required: true)
+            input("password", "password", title: fmtTitle("Password"), description: fmtDesc("BWA Password"), required: true)
         }
     }
 }
 
 def authResultPage() {
-    logMessage(3, "Attempting login with specified credentials...")
-    
+    logDebug  "Attempting login with specified credentials..."
+
     doLogin()
-    logMessage(2, "authResultPage() state.loginResponse: ${state.loginResponse}")
-    
+    logDebug "authResultPage() state.loginResponse: ${state.loginResponse}"
+
     // Check if login was successful
     if (state.token == null) {
-        logMessage(2, "authResultPage() state.token == null")
+        logDebug ("authResultPage() state.token == null")
         dynamicPage(name: "authResultPage", nextPage: "authPage", uninstall: false, install: false) {
             section("${state.loginResponse}") {
                 paragraph ("Please check your credentials and try again.")
             }
         }
     } else {
-        logMessage(2, "authResultPage() state.token != null")
+        logDebug ("authResultPage() state.token != null")
         dynamicPage(name: "authResultPage", nextPage: "mainPage", uninstall: false, install: false) {
             section("${state.loginResponse}") {
                 paragraph ("Please click next to continue setting up your spa.")
@@ -149,7 +168,7 @@ def authResultPage() {
 boolean doLogin(){
     def loggedIn = false
     def resp = doCallout("POST", "/users/login", [username: username, password: password])
-    
+
     switch (resp.status) {
         case 403:
             state.loginResponse = "Access forbidden"
@@ -164,17 +183,17 @@ boolean doLogin(){
             state.spas = null
             break
         case 200:
-            logMessage(3, "Successfully logged in.")
+            logInfo ("Successfully logged in.")
             loggedIn = true
             state.loginResponse = "Logged in"
             state.token = resp.data.token
             state.credentialStatus = "[Connected]"
             state.loginDate = toStDateString(new Date())
             cacheSpaData(resp.data.device)
-            logMessage(3, "Done caching SPA data.")
+            logInfo ("Done caching SPA data.")
             break
         default:
-            logMessage(2, resp.data)
+            logDebug (resp.data)
             state.loginResponse = "Login unsuccessful"
             state.credentialStatus = "[Disconnected]"
             state.token = null
@@ -182,7 +201,7 @@ boolean doLogin(){
             break
     }
 
-    logMessage(2, "loggedIn: ${loggedIn}, resp.status: ${resp.status}")
+    logInfo ("loggedIn: ${loggedIn}, resp.status: ${resp.status}")
     return loggedIn
 }
 
@@ -192,14 +211,15 @@ def reAuth() {
 }
 
 def getSpa() {
-    logMessage(3, "Getting Spa data from Balboa API...")
+    logDebug ("Getting Spa data from Balboa API...")
     def data = doCallout("POST", "/users/login", [username: username, password: password]).data
+    logDebug "==> data= ${data}"
     return cacheSpaData(data.device)
 }
 
 def cacheSpaData(spaData) {
     // save in state so we can re-use in settings
-    logMessage(3, "Saving Spa data in the state cache (app.id: ${app.id}, device_id: ${spaData.device_id})...")
+    logDebug ("Saving Spa data in the state cache (app.id: ${app.id}, device_id: ${spaData.device_id})...")
     state.spa = [:]
     state.spa["appId"] = app.id;
     state.spa["deviceId"] = spaData.device_id
@@ -217,7 +237,7 @@ def doCallout(calloutMethod, urlPath, calloutBody, contentType) {
 }
 
 def doCallout(calloutMethod, urlPath, calloutBody, contentType, queryParams) {
-    logMessage(3, "\"${calloutMethod}\"-ing ${contentType} to \"${urlPath}\"")
+    logDebug ("\"${calloutMethod}\"-ing ${contentType} to \"${urlPath}\"")
     def content_type
     switch(contentType) {
         case "xml":
@@ -238,7 +258,7 @@ def doCallout(calloutMethod, urlPath, calloutBody, contentType, queryParams) {
         requestContentType: content_type,
         body: calloutBody
     ]
-    
+
     def result
     try {
         switch (calloutMethod) {
@@ -261,13 +281,14 @@ def doCallout(calloutMethod, urlPath, calloutBody, contentType, queryParams) {
                 break
         }
     } catch (groovyx.net.http.HttpResponseException e) {
-    	log.debug e
+    	log.error e
         return e.response
     } catch (e) {
         log.error "Something went wrong: ${e}"
         return [error: e.message]
     }
-    
+
+    logDebug "==> Post result= ${result.data}"
     return result
 }
 
@@ -288,12 +309,12 @@ def initialize() {
     delete.each {
         deleteChildDevice(it.deviceNetworkId)
     }
-      
+
     def childDevices = []
     try {
         def childDevice = getChildDevice(state.spa["deviceId"])
         if(!childDevice) {
-            logMessage(4, "Adding device: ${settings.spaParentDeviceName} [${state.spa["deviceId"]}]")
+            logInfo ("Adding device: ${settings.spaParentDeviceName} [${state.spa["deviceId"]}]")
             childDevice = addChildDevice(NAMESPACE, PARENT_DEVICE_NAME_PREFIX, state.spa["deviceId"], [label: settings.spaParentDeviceName])
             state.spa["deviceDisplayName"] = settings.spaParentDeviceName
             childDevice.parseDeviceData(state.spa)
@@ -303,7 +324,7 @@ def initialize() {
     } catch (e) {
         log.error "Error creating device: ${e}"
     }
-    
+
     // set up polling only if we have child devices
     if(childDevices.size() > 0) {
         pollChildren()
@@ -312,32 +333,42 @@ def initialize() {
 }
 
 def pollChildren() {
-    logMessage(3, "polling...")
-    def devices = getChildDevices()
-    devices.each {
-        def deviceId = it.currentValue("deviceId", true)
-        if (deviceId == null) {
-            logMessage(3, "Error, deviceId was null. Didn't actually poll the server. Retrying...")
-            runIn(1, pollChildren)
-            return
+    logInfo ("pollChildren()...")
+    // Check for a location mode that allowed to poll per preference settings
+    if (pollingModes.contains(location.mode)) {
+        def devices = getChildDevices()
+        devices.each {
+            def deviceId = it.currentValue("deviceId", true)
+            if (deviceId == null) {
+                logErr ("Error, deviceId was null. Didn't actually poll the server. Retrying...")
+                runIn(1, pollChildren)
+                return
+            }
+            def deviceData = getPanelUpdate(deviceId)
+            if (deviceData != null) {
+                it.parsePanelData(deviceData)
+            } else {
+                logErr ("BWA Cloud did not successfully return any data for the SPA, Retrying....")
+                runIn(1, pollChildren)
+            }
         }
-        def deviceData = getPanelUpdate(deviceId)
-        it.parsePanelData(deviceData)
+    } else {
+        logInfo "Skipping BWA Cloud polling.. Currennt '${location.mode}' mode is not a valid polling mode(s) of '${pollingModes.join(", ")}'"
     }
 }
 
 // Get device configuration
 def getDeviceConfiguration(device_id) {
-    logMessage(3, "Getting device configuration for ${device_id}")
+    logDebug ("Getting device configuration for ${device_id}")
     def resp = doCallout("POST", "/devices/sci", getXmlRequest(device_id, "DeviceConfiguration"), "xml")
     return resp.data
 }
 
 // Decode the encoded configuration data received from Balboa
 def ParseDeviceConfigurationData(encodedData) {
-    logMessage(2, "encodedData: '${encodedData}'")
+    logTrace ("encodedData: '${encodedData}'")
     byte[] decoded = encodedData.decodeBase64()
-    logMessage(2, "decoded: '${decoded}'")
+    logTrace ("decoded: '${decoded}'")
     def returnValue = [:]
 
     returnValue["Pump0"] = (decoded[7] & 128) != 0 ? true : false
@@ -346,25 +377,25 @@ def ParseDeviceConfigurationData(encodedData) {
     returnValue["Pump2"] = (decoded[4] & 12) != 0 ? true : false
     returnValue["Pump3"] = (decoded[4] & 48) != 0 ? true : false
     returnValue["Pump4"] = (decoded[4] & 192) != 0 ? true : false
-    
+
     returnValue["Pump5"] = (decoded[5] & 3) != 0 ? true : false
     returnValue["Pump6"] = (decoded[5] & 192) != 0 ? true : false
-    
+
     returnValue["Light1"] = (decoded[6] & 3) != 0 ? true : false
     returnValue["Light2"] = (decoded[6] & 192) != 0 ? true : false
 
     returnValue["Blower"] = (decoded[7] & 0) != 0 ? true : false
-    
+
     returnValue["Aux1"] = (decoded[8] & 1) != 0 ? true : false
     returnValue["Aux2"] = (decoded[8] & 2) != 0 ? true : false
     returnValue["Mister"] = (decoded[8] & 16) != 0 ? true : false
-    
+
     return returnValue
 }
 
 // Get panel update
 def getPanelUpdate(device_id) {
-    logMessage(3, "Getting panel update for ${device_id}")
+    logDebug ("Getting panel update for ${device_id}")
     def resp = doCallout("POST", "/devices/sci", getXmlRequest(device_id, "PanelUpdate"), "xml")
     return resp.data
 }
@@ -374,7 +405,7 @@ def getXmlRequest(deviceId, fileName) {
 }
 
 def sendCommand(deviceId, targetName, data) {
-    logMessage(3, "sending ${targetName}:${data} command for ${deviceId}")
+    logDebug ("sending ${targetName}:${data} command for ${deviceId}")
     def resp = doCallout("POST", "/devices/sci", getXmlRequest(deviceId, targetName, data), "xml")
     return resp.data
 }
@@ -393,4 +424,110 @@ def toStDateString(date) {
 
 def parseStDate(dateStr) {
     return dateStr?.trim() ? timeToday(dateStr) : null
+}
+
+/*******************************************************************
+ *** Preference Helpers ***
+/*******************************************************************/
+
+String fmtTitle(String str) {
+	return "<strong>${str}</strong>"
+}
+String fmtDesc(String str) {
+	return "<div style='font-size: 85%; font-style: italic; padding: 1px 0px 4px 2px;'>${str}</div>"
+}
+String fmtHelpInfo(String str) {
+	String info = "${PARENT_DEVICE_NAME} v${VERSION}"
+	String prefLink = "<a href='${COMM_LINK}' target='_blank'>${str}<br><div style='font-size: 70%;'>${info}</div></a>"
+	String topStyle = "style='font-size: 18px; padding: 1px 12px; border: 2px solid Crimson; border-radius: 6px;'" //SlateGray
+	String topLink = "<a ${topStyle} href='${COMM_LINK}' target='_blank'>${str}<br><div style='font-size: 14px;'>${info}</div></a>"
+
+	return "<div style='font-size: 160%; font-style: bold; padding: 2px 0px; text-align: center;'>${prefLink}</div>" +
+		"<div style='text-align: center; position: absolute; top: 46px; right: 60px; padding: 0px;'><ul class='nav'><li>${topLink}</ul></li></div>"
+}
+def getImage(type) {
+    if(type == "Blank") return "<img src=${GITHUB_IMAGES_LINK}/blank.png height=40 width=5}>"
+    if(type == "checkMarkGreen") return "<img src=${GITHUB_IMAGES_LINK}/checkMarkGreen2.png height=30 width=30>"
+    if(type == "optionsGreen") return "<img src=${GITHUB_IMAGES_LINK}/options-green.png height=30 width=30>"
+    if(type == "optionsRed") return "<img src=${GITHUB_IMAGES_LINK}/options-red.png height=30 width=30>"
+    if(type == "instructions") return "<img src=${GITHUB_IMAGES_LINK}/instructions.png height=30 width=30>"
+}
+
+def getFormat(type, myText="") {
+    if(type == "header-blue") return "<div style='color:#ffffff;font-weight: bold;background-color:#309bff;border: 1px solid;box-shadow: 2px 3px #A9A9A9'>${myText}</div>"
+    if(type == "header-red") return "<div style='color:#ffffff;font-weight: bold;background-color:#ff0000;border: 1px solid;box-shadow: 2px 3px #A9A9A9'>${myText}</div>"
+    if(type == "line") return "<hr style='background-color:#1A77C9; height: 1px; border: 0;'>"
+    if(type == "title") return "<h2 style='color:#1A77C9;font-weight: bold'>${myText}</h2>"
+}
+
+def help() {
+    section("${getImage('instructions')} <b>${app.name} Online Documentation</b>", hideable: true, hidden: true) {
+        paragraph "<a href='${GITHUB_LINK}#readme' target='_blank'><h4 style='color:DodgerBlue;'>Click this link to view Online Documentation for ${app.name}</h4></a>"
+    }
+}
+
+def sectionHeader(title){
+    return getFormat("header-blue", "${getImage("Blank")}"+" ${title}")
+}
+
+/*******************************************************************
+ ***** Logging Functions
+********************************************************************/
+//Logging Level Options
+@Field static final Map LOG_LEVELS = [0:"Error (Default)", 1:"Warn", 2:"Info", 3:"Debug", 4:"Trace"]
+@Field static final Map LOG_TIMES  = [0:"Indefinitely", 30:"30 Minutes", 60:"1 Hour", 120:"2 Hours", 180:"3 Hours", 360:"6 Hours", 720:"12 Hours", 1440:"24 Hours"]
+
+//Call this function from within updated() and configure() with no parameters: checkLogLevel()
+void checkLogLevel(Map levelInfo = [level:null, time:null]) {
+	unschedule(logsOff)
+	//Set Defaults
+	if (settings.logLevel == null) device.updateSetting("logLevel",[value:"0", type:"enum"])
+	if (settings.logLevelTime == null) device.updateSetting("logLevelTime",[value:"30", type:"enum"])
+	//Schedule turn off and log as needed
+	if (levelInfo.level == null) levelInfo = getLogLevelInfo()
+	String logMsg = "Logging Level is: ${LOG_LEVELS[levelInfo.level]} (${levelInfo.level})"
+	if (levelInfo.level >= 3 && levelInfo.time > 0) {
+		logMsg += " for ${LOG_TIMES[levelInfo.time]}"
+		runIn(60*levelInfo.time, logsOff)
+	}
+	logInfo(logMsg)
+}
+
+//Function for optional command
+void setLogLevel(String levelName, String timeName=null) {
+	Integer level = LOG_LEVELS.find{ levelName.equalsIgnoreCase(it.value) }.key
+	Integer time = LOG_TIMES.find{ timeName.equalsIgnoreCase(it.value) }.key
+	device.updateSetting("logLevel",[value:"${level}", type:"enum"])
+	checkLogLevel(level: level, time: time)
+}
+
+Map getLogLevelInfo() {
+	Integer level = settings.logLevel as Integer ?: 0
+	Integer time = settings.logLevelTime as Integer ?: 0
+	return [level: level, time: time]
+}
+
+//Current Support
+void logsOff() {
+	logWarn "Debug and Trace logging disabled..."
+	if (logLevelInfo.level >= 1) {
+		device.updateSetting("logLevel",[value:"0", type:"enum"])
+	}
+}
+
+//Logging Functions
+void logErr(String msg) {
+	log.error "${device.displayName}: ${msg}"
+}
+void logWarn(String msg) {
+	if (logLevelInfo.level>=1) log.warn "${app.name}: ${msg}"
+}
+void logInfo(String msg) {
+	if (logLevelInfo.level>=2) log.info "${app.name}: ${msg}"
+}
+void logDebug(String msg) {
+	if (logLevelInfo.level>=3) log.debug "${app.name}: ${msg}"
+}
+void logTrace(String msg) {
+	if (logLevelInfo.level>=4) log.trace "${app.name}: ${msg}"
 }

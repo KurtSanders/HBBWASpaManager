@@ -2,6 +2,9 @@
  *  Hubitat BWA Spa Manager
  *  -> Parent Device Driver
  *
+ *  Copyright 2023 Kurt Sannders
+ *   based on work Copyright 2020 Richard Powell that he did for Hubitat
+ *
  *  Copyright 2020 Richard Powell
  *   based on work Copyright 2020 Nathan Spencer that he did for SmartThings
  *
@@ -25,25 +28,38 @@
  *  1.1.2b      2020-09-17      Modified / validated to work on Hubitat
  *  1.1.3       2020-10-11      Major rewrite of this driver to work with Hubitat's Parent-Child device driver model
  *  1.1.4       2020-10-11      Support the remaining device types except Blower, more code clean-up
- *
+ *  1.2.0       2023-11-11      V1.2.0 code stream maintained by Kurt Sanders
+ *                              Moved hardcoded logging in driver to UI preferences and added expire timeout logic.
+ *                              Added 'Switch Capability' in device parent for:
+ *                                  Value: On (TempRange: high, ReadyMode: Ready)
+ *                                  Value: Off (TempRange: low, ReadyMode: Rest)
+ *                              Added capability "Actuator" and attribute "ReadyMode", "enum", ["Ready", "Rest"] with command "setReadyMode"
+ *                              Added attribute "TempRange", "enum", ["low", "high"] and command "setTempRange"
+ *                              Move hardcoded logging in app and drivers to app and device UI input fields for easier end user maintenance.
+ *                              Added app and drivers to HPM Public Install App
  */
 
 import groovy.transform.Field
 import groovy.time.TimeCategory
 
-@Field static int LOG_LEVEL = 3
-
-@Field static String NAMESPACE = "richardpowellus"
+@Field static String NAMESPACE = "kurtsanders"
 
 @Field static String DEVICE_NAME_PREFIX = "HB BWA SPA"
 @Field static String PARENT_DEVICE_NAME = "HB BPA SPA Parent"
+@Field static final String VERSION = "1.2.0"
+@Field static final String COMM_LINK = "https://community.hubitat.com/t/balboa-spa-controller-app/18194/45"
+
 @Field static String THERMOSTAT_CHILD_DEVICE_NAME = "HB BWA SPA Thermostat"
 @Field static String SWITCH_CHILD_DEVICE_NAME = "HB BWA SPA Switch"
 
+
 metadata {
-    definition (name: PARENT_DEVICE_NAME, namespace: NAMESPACE, author: "Richard Powell") {
+    definition (name: PARENT_DEVICE_NAME, namespace: NAMESPACE, author: "Kurt Sanders") {
+        capability "Refresh"
         capability "Configuration"
-                        
+        capability "Actuator"
+        capability "Switch"
+
         /* This is a list of attributes sent to us right after we successfully login
          * to Balboa and pull details about Spas linked to the user's account.
          *
@@ -58,10 +74,17 @@ metadata {
         attribute "active", "string"
         attribute "created_at", "string"
         attribute "_id", "string"
-        
+
         // Additional attributes
         attribute "spaStatus", "string"
-    }   
+        attribute "ReadyMode", "enum", ["Ready", "Rest"]
+        attribute "TempRange", "enum", ["low", "high"]
+
+        command "setReadyMode"
+        command "setTempRange"
+        command "setLogLevel", [ [name:"Select Level*", description:"Log this type of message and above", type: "ENUM", constraints: LOG_LEVELS],
+                                [name:"Debug/Trace Time", description:"Timer for Debug/Trace logging", type: "ENUM", constraints: LOG_TIMES] ]
+    }
 }
 
 @Field static Map PUMP_BUTTON_MAP = [
@@ -89,28 +112,50 @@ metadata {
     TempRange: 80,
     HeatMode: 81]
 
-def logMessage(level, message) {
-    if (level >= LOG_LEVEL) {
-        if (level < 3) {
-            log.debug message
-        } else {
-            log.info message
-        }
-    }
-}
-
 def installed() {
 }
 
 def updated() {
+	logDebug "updated..."
+	checkLogLevel()
 }
 
 def on() {
-    // TODO: Maybe implement some sort of "Turn everything on" feature.
+    if (device.currentValue("ReadyMode") == "Rest") {
+        setReadyMode()
+    }
+    if (device.currentValue("TempRange") == "low") {
+        setTempRange()
+    }
 }
 
 def off() {
-    // TODO: Implement a "Turn everything off" feature.
+    if (device.currentValue("ReadyMode") == "Ready") {
+        setReadyMode()
+    }
+    if (device.currentValue("TempRange") == "high") {
+        setTempRange()
+    }
+}
+
+void setReadyMode() {
+    logDebug "In parent setReadyMode..."
+    ReadyMode = device.currentValue("ReadyMode")
+    logDebug "Device current mode is ${ReadyMode}"
+    text_mode = ReadyMode == "Ready" ? "Rest" : "Ready"
+    sendEvent(name: "ReadyMode", value: text_mode)
+    logDebug "Setting mode to ${text_mode}"
+    sendCommand("Button", BUTTON_MAP.HeatMode)
+}
+
+void setTempRange() {
+    logDebug "In parent setTempRange..."
+    TempRange = device.currentValue("TempRange")
+    logDebug "Device current heating mode is ${TempRange}"
+    temp_range = TempRange == "low" ? "high" : "high"
+    sendEvent(name: "TempRange", value: temp_range)
+    logDebug "Setting hTemp Range to ${temp_range}"
+    sendCommand("Button", BUTTON_MAP.TempRange)
 }
 
 def sendCommand(action, data) {
@@ -127,7 +172,7 @@ def parseDeviceData(Map results) {
 def createChildDevices(spaConfiguration) {
     // Thermostat
     fetchChild(true, "Thermostat", "Thermostat")
- 
+
     /* The incoming spaConfiguration has a list of all the possible add-on devices like
        pumps, lights, etc. mapped to a boolean indicating whether or not this particular
        hot tub actually has that specific device installed on it.
@@ -137,7 +182,7 @@ def createChildDevices(spaConfiguration) {
        child device for it (passing "true" as the first parameter to fetchChild(...) will
        have it go and create a device if it doesn't exist already.
     */
-    
+
     // Pumps
     spaConfiguration.each { k, v ->
         if (k.startsWith("Pump") && v == true) {
@@ -145,7 +190,7 @@ def createChildDevices(spaConfiguration) {
             fetchChild(true, "Switch", "Pump ${pumpNumber}", PUMP_BUTTON_MAP[pumpNumber])
         }
     }
-    
+
     // Lights
     spaConfiguration.each { k, v ->
         if (k.startsWith("Light") && v == true) {
@@ -153,13 +198,13 @@ def createChildDevices(spaConfiguration) {
             fetchChild(true, "Switch", "Light ${lightNumber}", LIGHT_BUTTON_MAP[lightNumber])
         }
     }
-    
+
     // Blower
     if (spaConfiguration["Blower"] == true) {
         // TODO: Support Blower properly. It's not a "Switch" device type.
         //fetchChild(true, ???, "Blower", BUTTON_MAP.Blower)
     }
-    
+
     // Aux
     spaConfiguration.each { k, v ->
         if (k.startsWith("Aux") && v == true) {
@@ -167,7 +212,7 @@ def createChildDevices(spaConfiguration) {
             fetchChild(true, "Switch", "Aux ${lightNumber}", AUX_BUTTON_MAP[lightNumber])
         }
     }
-    
+
     // Mister
     if (spaConfiguration["Mister"] == true) {
         fetchChild(true, "Switch", "Mister", BUTTON_MAP.Mister)
@@ -176,14 +221,15 @@ def createChildDevices(spaConfiguration) {
 
 def parsePanelData(encodedData) {
     byte[] decoded = encodedData.decodeBase64()
+    logDebug "==> decoded (${decoded.size()} members => ${decoded}"
 
     def is24HourTime = (decoded[13] & 2) != 0 ? true : false
     def currentTimeHour = decoded[7]
     def currentTimeMinute = decoded[8]
-    
+
     def temperatureScale = (decoded[13] & 1) == 0 ? "F" : "C"
     def actualTemperature = decoded[6]
-    
+
     def targetTemperature = decoded[24]
     def isHeating = (decoded[14] & 48) != 0
     def heatingMode = (decoded[14] & 4) == 4 ? "high" : "low"
@@ -201,7 +247,7 @@ def parsePanelData(encodedData) {
         default:
             heatMode = "None"
     }
-    
+
     // Send events to Thermostat child device
     def thermostatChildDevice = fetchChild(false, "Thermostat", "Thermostat")
     if (thermostatChildDevice != null) {
@@ -214,7 +260,7 @@ def parsePanelData(encodedData) {
             [name: "thermostatOperatingState", value: isHeating ? "heating" : "idle"],
         ])
     }
-      
+
     def filtermode
     switch (decoded[13] & 12) {
         case 4:
@@ -230,7 +276,7 @@ def parsePanelData(encodedData) {
         default:
             filterMode = "Off"
     }
-    
+
     def accessibilityType
     switch (decoded[13] & 48) {
         case 16:
@@ -243,7 +289,7 @@ def parsePanelData(encodedData) {
         default:
             accessibilityType = "All"
     }
-    
+
     // Pumps
     def pumpState = []
     pumpState[0] = null
@@ -331,7 +377,7 @@ def parsePanelData(encodedData) {
         }
         pump6ChildDevice.parse(pumpState[6])
     }
-    
+
     // TODO: Support Blower properly. It's not a switch device type
     switch (decoded[17] & 12) {
         case 4:
@@ -346,7 +392,7 @@ def parsePanelData(encodedData) {
         default:
         	blowerState = "off"
     }
-    
+
     // Lights
     def lightState = []
     lightState[0] = null
@@ -360,7 +406,7 @@ def parsePanelData(encodedData) {
         lightState[2] = (decoded[18] & 12) != 0
         light2ChildDevice.parse(lightState[2])
     }
-    
+
     // Mister
     def misterChildDevice = fetchChild(false, "Switch", "Mister")
     def misterState = null
@@ -368,7 +414,7 @@ def parsePanelData(encodedData) {
         misterState = (decoded[19] & 1) != 0
         misterChildDevice.parse(misterState)
     }
-    
+
     // Aux
     def auxState = []
     auxState[0] = null
@@ -382,7 +428,7 @@ def parsePanelData(encodedData) {
         auxState[2] = (decoded[19] & 16) != 0
         aux2ChildDevice.parse(auxState[2])
     }
-    
+
     def wifiState
     switch (decoded[16] & 240) {
     	case 0:
@@ -404,24 +450,24 @@ def parsePanelData(encodedData) {
         	wifiState = "Panel"
             break
     }
-    
+
     def pumpStateStatus
     if (decoded[15] < 1 && decoded[16] < 1 && (decoded[17] & 3) < 1) {
     	pumpStateStatus = "Off"
     } else {
     	pumpStateStatus = isHeating ? "Low Heat" : "Low"
     }
-    
+
     if (actualTemperature == 255) {
     	actualTemperature = device.currentValue("temperature") * (temperatureScale == "C" ? 2.0F : 1)
     }
-    
+
     if (temperatureScale == "C") {
     	actualTemperature /= 2.0F
     	targetTemperature /= 2.0F
     }
-    
-    logMessage(2, "Actual Temperature: ${actualTemperature}\n"
+
+    logDebug ("Actual Temperature: ${actualTemperature}\n"
                 + "Current Time Hour: ${currentTimeHour}\n"
                 + "Current Time Minute: ${currentTimeMinute}\n"
                 + "Is 24-Hour Time: ${is24HourTime}\n"
@@ -446,23 +492,34 @@ def parsePanelData(encodedData) {
                 + "auxState[2]: ${auxState[2]}\n"
                 + "pumpStateStatus: ${pumpStateStatus}\n"
                 + "wifiState: ${wifiState}\n"
-    )
-    
-    sendEvent(name: "spaStatus", value: "${heatMode}\n${isHeating ? "heating to ${targetTemperature}°" : "not heating"}")
+             )
+
+    sendEvent(name: "spaStatus", value: "${heatMode}\n${isHeating ? "heating to ${targetTemperature}°${temperatureScale}" : "not heating"}")
+    sendEvent(name: "ReadyMode", value: "${heatMode}")
+    sendEvent(name: "TempRange", value: "${heatingMode}")
+    def now = new Date().format('EEE MMM d, h:mm:ss a',location.timeZone)
+    sendEvent(name: "updated_at", value: "${now}")
+
+
+    if (device.currentValue("ReadyMode") == "Ready" && device.currentValue("TempRange") == "high") {
+        sendEvent(name: "switch", value: "on")
+    } else {
+        sendEvent(name: "switch", value: "off")
+    }
 }
 
 def fetchChild(createIfDoesntExist, String type, String name, Integer balboaApiButtonNumber = 0) {
     String thisId = device.id
     def childDeviceName = "${thisId}-${name}"
-    logMessage(2, "childDeviceName: '${childDeviceName}")
-    
+    logTrace "childDeviceName: '${childDeviceName}"
+
     def cd = getChildDevice(childDeviceName)
     if (!cd && createIfDoesntExist) {
         def driverName = "${DEVICE_NAME_PREFIX} ${type}"
-                
-        logMessage(3, "Adding Child Device. Driver: '${driverName}', Name: '${childDeviceName}'")
+
+        logInfo "Adding Child Device. Driver: '${driverName}', Name: '${childDeviceName}'"
         cd = addChildDevice(NAMESPACE, driverName, childDeviceName, [name: "${device.displayName} {$name}", isComponent: true])
-        
+
         // Switches will need to know their respective Balboa API Button IDs
         if (type == "Switch" && balboaApiButtonNumber > 0) {
             cd.setBalboaAPIButtonNumber(balboaApiButtonNumber)
@@ -472,5 +529,111 @@ def fetchChild(createIfDoesntExist, String type, String name, Integer balboaApiB
 }
 
 void refresh() {
+    logDebug "BWA Cloud Refresh Requested"
     parent.pollChildren()
+}
+
+/*******************************************************************
+ *** Preference Helpers ***
+/*******************************************************************/
+
+String fmtTitle(String str) {
+	return "<strong>${str}</strong>"
+}
+String fmtDesc(String str) {
+	return "<div style='font-size: 85%; font-style: italic; padding: 1px 0px 4px 2px;'>${str}</div>"
+}
+String fmtHelpInfo(String str) {
+	String info = "${PARENT_DEVICE_NAME} v${VERSION}"
+	String prefLink = "<a href='${COMM_LINK}' target='_blank'>${str}<br><div style='font-size: 70%;'>${info}</div></a>"
+	String topStyle = "style='font-size: 18px; padding: 1px 12px; border: 2px solid Crimson; border-radius: 6px;'" //SlateGray
+	String topLink = "<a ${topStyle} href='${COMM_LINK}' target='_blank'>${str}<br><div style='font-size: 14px;'>${info}</div></a>"
+
+	return "<div style='font-size: 160%; font-style: bold; padding: 2px 0px; text-align: center;'>${prefLink}</div>" +
+		"<div style='text-align: center; position: absolute; top: 46px; right: 60px; padding: 0px;'><ul class='nav'><li>${topLink}</ul></li></div>"
+}
+
+/*******************************************************************
+ ***** Logging Functions
+********************************************************************/
+//Logging Level Options
+@Field static final Map LOG_LEVELS = [0:"Error", 1:"Warn", 2:"Info", 3:"Debug", 4:"Trace"]
+@Field static final Map LOG_TIMES = [0:"Indefinitely", 30:"30 Minutes", 60:"1 Hour", 120:"2 Hours", 180:"3 Hours", 360:"6 Hours", 720:"12 Hours", 1440:"24 Hours"]
+
+/*//Command to set log level, OPTIONAL. Can be copied to driver or uncommented here
+command "setLogLevel", [ [name:"Select Level*", description:"Log this type of message and above", type: "ENUM", constraints: LOG_LEVELS],
+	[name:"Debug/Trace Time", description:"Timer for Debug/Trace logging", type: "ENUM", constraints: LOG_TIMES] ]
+*/
+
+//Additional Preferences
+preferences {
+	//Logging Options
+	input name: "logLevel", type: "enum", title: fmtTitle("Logging Level"),
+		description: fmtDesc("Logs selected level and above"), defaultValue: 3, options: LOG_LEVELS
+	input name: "logLevelTime", type: "enum", title: fmtTitle("Logging Level Time"),
+		description: fmtDesc("Time to enable Debug/Trace logging"),defaultValue: 30, options: LOG_TIMES
+	//Help Link
+	input name: "helpInfo", type: "hidden", title: fmtHelpInfo("Community Link")
+}
+
+//Call this function from within updated() and configure() with no parameters: checkLogLevel()
+void checkLogLevel(Map levelInfo = [level:null, time:null]) {
+	unschedule(logsOff)
+	//Set Defaults
+	if (settings.logLevel == null) device.updateSetting("logLevel",[value:"3", type:"enum"])
+	if (settings.logLevelTime == null) device.updateSetting("logLevelTime",[value:"30", type:"enum"])
+	//Schedule turn off and log as needed
+	if (levelInfo.level == null) levelInfo = getLogLevelInfo()
+	String logMsg = "Logging Level is: ${LOG_LEVELS[levelInfo.level]} (${levelInfo.level})"
+	if (levelInfo.level >= 3 && levelInfo.time > 0) {
+		logMsg += " for ${LOG_TIMES[levelInfo.time]}"
+		runIn(60*levelInfo.time, logsOff)
+	}
+	logInfo(logMsg)
+}
+
+//Function for optional command
+void setLogLevel(String levelName, String timeName=null) {
+	Integer level = LOG_LEVELS.find{ levelName.equalsIgnoreCase(it.value) }.key
+	Integer time = LOG_TIMES.find{ timeName.equalsIgnoreCase(it.value) }.key
+	device.updateSetting("logLevel",[value:"${level}", type:"enum"])
+	checkLogLevel(level: level, time: time)
+}
+
+Map getLogLevelInfo() {
+	Integer level = settings.logLevel as Integer ?: 3
+	Integer time = settings.logLevelTime as Integer ?: 0
+	return [level: level, time: time]
+}
+
+//Legacy Support
+void debugLogsOff() {
+	logWarn "Debug logging toggle disabled..."
+	device.removeSetting("logEnable")
+	device.updateSetting("debugEnable",[value:"false",type:"bool"])
+}
+
+//Current Support
+void logsOff() {
+	logWarn "Debug and Trace logging disabled..."
+	if (logLevelInfo.level >= 3) {
+		device.updateSetting("logLevel",[value:"2", type:"enum"])
+	}
+}
+
+//Logging Functions
+void logErr(String msg) {
+	log.error "${device.displayName}: ${msg}"
+}
+void logWarn(String msg) {
+	if (logLevelInfo.level>=1) log.warn "${device.displayName}: ${msg}"
+}
+void logInfo(String msg) {
+	if (logLevelInfo.level>=2) log.info "${device.displayName}: ${msg}"
+}
+void logDebug(String msg) {
+	if (logLevelInfo.level>=3) log.debug "${device.displayName}: ${msg}"
+}
+void logTrace(String msg) {
+	if (logLevelInfo.level>=4) log.trace "${device.displayName}: ${msg}"
 }
