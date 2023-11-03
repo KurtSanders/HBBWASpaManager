@@ -41,7 +41,7 @@ import groovy.transform.Field
 
 definition(
     name: PARENT_DEVICE_NAME,
-    namespace: AUTHOR_NAME,
+    namespace: NAMESPACE,
     author: "Kurt Sanders",
     description: "Access and control your BWA Spa.",
     category: "Health & Wellness",
