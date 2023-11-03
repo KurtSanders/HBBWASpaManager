@@ -1,0 +1,44 @@
+{
+  "packageName": "BWA Spa Manager",
+  "author": "Kurt Sanders",
+  "version": "1.2.0",
+  "minimumHEVersion": "2.3.6",
+  "dateReleased": "2023-11-03",
+  "documentationLink": "https://github.com/KurtSanders/HBBWASpaManager/blob/master/README.md",
+  "licenseFile": "",
+  "releaseNotes": "Version 1.2.0 (Beta) by Kurt Sanders\n\n ** Forked from originnal work by Richard Powell 2020 **\n\n1. Moved hardcoded logging in driver to UI preferences and added expire timeout logic.\n\n2. Added 'Switch Capability' in device parent for:\n*  Value: On (TempRange: high, ReadyMode: Ready)\n*  Value: Off (TempRange: low, ReadyMode: Rest)\n\n3. Added capability 'Actuator' and attribute 'ReadyMode', 'enum', ['Ready', 'Rest'] with command 'setReadyMode'\n\n4. Added attribute 'TempRange', 'enum', ['low', 'high'] and command 'setTempRange'\n\n5. Move hardcoded logging in app and drivers to app and device UI input fields for easier end user maintenance.\n\n6. Added app and drivers to HPM Public Install App",
+  "apps": [
+    {
+      "id": "bc4ae4ab-f0eb-4505-a677-21ce430b3823",
+      "name": "BWA Spa Manager",
+      "namespace": "kurtsanders",
+      "location": "https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/master/HBBWASpaManager_App.groovy",
+      "required": true,
+      "primary": true,
+      "oauth": false
+    }
+  ],
+  "drivers": [
+    {
+      "id": "d1747691-8d6e-4448-9aae-b0981fc6915a",
+      "name": "HB BPA SPA Parent",
+      "namespace": "kurtsanders",
+      "location": "https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/master/HBBWASpaManager_Parent_Device.groovy",
+      "required": true
+    },
+    {
+      "id": "b9105e48-ae2e-45af-8826-5ceb8e52ae92",
+      "name": "HB BWA SPA Switch",
+      "namespace": "kurtsanders",
+      "location": "https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/master/HBBWASpaManager_Switch_Device.groovy",
+      "required": true
+    },
+    {
+      "id": "4e9c94b5-f0c2-41db-a90d-40aa29e5d749",
+      "name": "HB BWA SPA Thermostat",
+      "namespace": "kurtsanders",
+      "location": "https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/master/HBBWASpaManager_Thermostat_Device.groovy",
+      "required": true
+    }
+  ]
+}
