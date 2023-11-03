@@ -529,8 +529,8 @@ def fetchChild(createIfDoesntExist, String type, String name, Integer balboaApiB
 }
 
 void refresh() {
-    logDebug "BWA Cloud Refresh Requested"
-    parent.pollChildren()
+    log.info "BWA Cloud Manual Refresh Requested"
+    parent.pollChildren(override=true)
 }
 
 /*******************************************************************

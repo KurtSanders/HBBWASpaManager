@@ -332,10 +332,10 @@ def initialize() {
     } else unschedule(pollChildren)
 }
 
-def pollChildren() {
+def pollChildren(override=false) {
     logInfo ("pollChildren()...")
     // Check for a location mode that allowed to poll per preference settings
-    if (pollingModes.contains(location.mode)) {
+    if (override || pollingModes.contains(location.mode)) {
         def devices = getChildDevices()
         devices.each {
             def deviceId = it.currentValue("deviceId", true)
