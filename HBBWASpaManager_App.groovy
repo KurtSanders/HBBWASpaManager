@@ -517,7 +517,7 @@ void logsOff() {
 
 //Logging Functions
 void logErr(String msg) {
-	log.error "${device.displayName}: ${msg}"
+	log.error "${app.displayName}: ${msg}"
 }
 void logWarn(String msg) {
 	if (logLevelInfo.level>=1) log.warn "${app.name}: ${msg}"

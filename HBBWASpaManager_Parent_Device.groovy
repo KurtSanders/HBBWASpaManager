@@ -37,6 +37,8 @@
  *                              Added attribute "TempRange", "enum", ["low", "high"] and command "setTempRange"
  *                              Move hardcoded logging in app and drivers to app and device UI input fields for easier end user maintenance.
  *                              Added app and drivers to HPM Public Install App
+ *                              Added attribute attribute 'online', 'enum', ['Online','Offline'] to monitor spa network connectivity
+ *                              Added attribute 'updated_at' to track the timestamp of the current Spa readings
  */
 
 import groovy.transform.Field
@@ -79,11 +81,12 @@ metadata {
         attribute "spaStatus", "string"
         attribute "ReadyMode", "enum", ["Ready", "Rest"]
         attribute "TempRange", "enum", ["low", "high"]
+        attribute "online", "enum", ["Online","Offline"]
 
         command "setReadyMode"
         command "setTempRange"
-        command "setLogLevel", [ [name:"Select Level*", description:"Log this type of message and above", type: "ENUM", constraints: LOG_LEVELS],
-                                [name:"Debug/Trace Time", description:"Timer for Debug/Trace logging", type: "ENUM", constraints: LOG_TIMES] ]
+//        command "setLogLevel", [ [name:"Select Level*", description:"Log this type of message and above", type: "ENUM", constraints: LOG_LEVELS],
+//                                [name:"Debug/Trace Time", description:"Timer for Debug/Trace logging", type: "ENUM", constraints: LOG_TIMES] ]
     }
 }
 
@@ -220,6 +223,12 @@ def createChildDevices(spaConfiguration) {
 }
 
 def parsePanelData(encodedData) {
+    def now = new Date().format('EEE MMM d, h:mm:ss a',location.timeZone)
+// Check to see if the SPA is disconnected from BWA Cloud
+    if (encodedData == "Device Not Connected") {
+        sendEvent(name: "online", value: "Offline")
+        return
+    }
     byte[] decoded = encodedData.decodeBase64()
     logDebug "==> decoded (${decoded.size()} members => ${decoded}"
 
@@ -497,8 +506,8 @@ def parsePanelData(encodedData) {
     sendEvent(name: "spaStatus", value: "${heatMode}\n${isHeating ? "heating to ${targetTemperature}°${temperatureScale}" : "not heating"}")
     sendEvent(name: "ReadyMode", value: "${heatMode}")
     sendEvent(name: "TempRange", value: "${heatingMode}")
-    def now = new Date().format('EEE MMM d, h:mm:ss a',location.timeZone)
     sendEvent(name: "updated_at", value: "${now}")
+    sendEvent(name: "online", value: "Online")
 
 
     if (device.currentValue("ReadyMode") == "Ready" && device.currentValue("TempRange") == "high") {
