@@ -27,6 +27,7 @@
  *                              Moved hardcoded logging in app to UI preferences and
  *                              Added logging expire timeout logic
  *                              Added App to HPM Public Install App
+ *                              Added several error traps for unexpected conditions, like spa offline, BWA Cloud errors, etc.
  */
 
 import groovy.transform.Field
