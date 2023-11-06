@@ -62,40 +62,35 @@ preferences {
 @Field static String BWGAPI_API_URL = "https://bwgapi.balboawater.com/"
 @Field static String PARENT_DEVICE_NAME_PREFIX = "HB BPA SPA Parent"
 
-/* Spa Map Key Values
-    "appId"
-    "deviceId"
-    "deviceNetworkId"
-    "deviceDisplayName"
-*/
-
 def confirmPage() {
     def devConfig = getDeviceConfiguration(state.spa["deviceId"])
-    logDebug "==> devConfig.decodeBase64()= ${devConfig.decodeBase64()}"
-
     def spaConfiguration = ParseDeviceConfigurationData(devConfig)
-    logDebug "==> spaConfiguration= ${spaConfiguration}"
-
-    def deviceCount = spaConfiguration.count { key, value -> value == true }
     logDebug "confirmPage() spaConfiguration.dump(): ${spaConfiguration}"
-
-    state.spaConfiguration = spaConfiguration
 
     dynamicPage(name: "confirmPage", uninstall: true, install: true) {
         section (sectionHeader("Name your BWA Spa Device")) {
             input(name: "spaParentDeviceName", type: "text", title: fmtTitle("Spa Parent Device Name:"), required: false, defaultValue: state.spa["deviceDisplayName"], description: fmtDesc(state.spa["deviceDisplayName"]))
         }
-        section(sectionHeader("Found the following ${deviceCount} devices attached to your hot tub")) {
-            def index = 1
-            spaConfiguration.each { k, v ->
-                if (v == true) {
-                    paragraph("${index++}. ${k}")
+        if (spaConfiguration != null) {
+            state.spaConfiguration = spaConfiguration
+            def deviceCount = spaConfiguration.count { key, value -> value == true }
+                section (sectionHeader("Found the following ${deviceCount} devices attached to your hot tub")) {
+                    def index = 1
+                    def spaManifest = "<ul>"
+                    spaConfiguration.each { k, v ->
+                        if (v == true) {
+                            spaManifest = spaManifest + "<li style='color:green;font-size:20px'>${k}</li>"
+                        }
+                    }
+                    paragraph("${spaManifest}</ul>")
                 }
+        } else {
+            section(sectionHeader("Spa Not Responding")) {
+                paragraph "The Spa is not responding to BWA cloud, please check to see if it is online"
             }
         }
     }
 }
-
 
 def mainPage() {
     // Get spa if we don't have it already
@@ -332,15 +327,15 @@ def initialize() {
     } else unschedule(pollChildren)
 }
 
-def pollChildren(override=false) {
+def pollChildren(refreshOverride=false) {
     logInfo ("pollChildren()...")
     // Check for a location mode that allowed to poll per preference settings
-    if (override || pollingModes.contains(location.mode)) {
+    if (refreshOverride || pollingModes.contains(location.mode)) {
         def devices = getChildDevices()
         devices.each {
             def deviceId = it.currentValue("deviceId", true)
             if (deviceId == null) {
-                logErr ("Error, deviceId was null. Didn't actually poll the server. Retrying...")
+                logErr ("Error, deviceId was null. Didn't actually poll the server. Retrying in 3 seconds...")
                 runIn(1, pollChildren)
                 return
             }
@@ -348,7 +343,7 @@ def pollChildren(override=false) {
             if (deviceData != null) {
                 it.parsePanelData(deviceData)
             } else {
-                logErr ("BWA Cloud did not successfully return any data for the SPA, Retrying....")
+                logErr ("BWA Cloud did not successfully return any data for the SPA, Retrying in 3 secords....")
                 runIn(1, pollChildren)
             }
         }

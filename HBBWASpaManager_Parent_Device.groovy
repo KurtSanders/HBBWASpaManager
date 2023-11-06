@@ -50,6 +50,7 @@ import groovy.time.TimeCategory
 @Field static String PARENT_DEVICE_NAME = "HB BPA SPA Parent"
 @Field static final String VERSION = "1.2.0"
 @Field static final String COMM_LINK = "https://community.hubitat.com/t/balboa-spa-controller-app/18194/45"
+@Field static final List VALID_SPA_BYTE_ARRAY = [29, -1, -81]
 
 @Field static String THERMOSTAT_CHILD_DEVICE_NAME = "HB BWA SPA Thermostat"
 @Field static String SWITCH_CHILD_DEVICE_NAME = "HB BWA SPA Switch"
@@ -223,15 +224,23 @@ def createChildDevices(spaConfiguration) {
 }
 
 def parsePanelData(encodedData) {
+    logDebug "==> encodedData= ${encodedData}"
+    logDebug "==> encodedData.decodeBase64()= ${encodedData.decodeBase64()}"
     def now = new Date().format('EEE MMM d, h:mm:ss a',location.timeZone)
-// Check to see if the SPA is disconnected from BWA Cloud
-    if (encodedData == "Device Not Connected") {
-        sendEvent(name: "online", value: "Offline")
-        return
-    }
     byte[] decoded = encodedData.decodeBase64()
-    logDebug "==> decoded (${decoded.size()} members => ${decoded}"
 
+    // Check for a valid SPA array prefix
+    if (decoded[0..2] != VALID_SPA_BYTE_ARRAY) {
+        if (encodedData != null) {
+            log.warn "BWA Cloud Spa Error: encodedData '${encodedData}' is NOT a valid SPA panel data.   Is the Spa Online?"
+        } else {
+            log.warn "BWA Cloud Spa Error: SPA panel data was (null).  Is the Spa Online?"
+            encodedData = "Spa Cloud was null"
+        }
+        sendEvent(name: "online", value: "Offline")
+        sendEvent(name: "updated_at", value: "${encodedData} at ${now}")
+        return false
+    }
     def is24HourTime = (decoded[13] & 2) != 0 ? true : false
     def currentTimeHour = decoded[7]
     def currentTimeMinute = decoded[8]
@@ -245,14 +254,14 @@ def parsePanelData(encodedData) {
     def heatMode
     switch (decoded[9]) {
         case 0:
-            heatMode = "Ready"
-            break;
+        heatMode = "Ready"
+        break;
         case 1:
-            heatMode = "Rest"
-            break;
+        heatMode = "Rest"
+        break;
         case 2:
-            heatMode = "Ready in Rest"
-            break;
+        heatMode = "Ready in Rest"
+        break;
         default:
             heatMode = "None"
     }
@@ -273,14 +282,14 @@ def parsePanelData(encodedData) {
     def filtermode
     switch (decoded[13] & 12) {
         case 4:
-            filterMode = "Filter 1"
-            break;
+        filterMode = "Filter 1"
+        break;
         case 8:
-            filterMode = "Filter 2"
-            break;
+        filterMode = "Filter 2"
+        break;
         case 12:
-            filterMode = "Filter 1 & 2"
-            break;
+        filterMode = "Filter 1 & 2"
+        break;
         case 0:
         default:
             filterMode = "Off"
@@ -289,12 +298,12 @@ def parsePanelData(encodedData) {
     def accessibilityType
     switch (decoded[13] & 48) {
         case 16:
-            accessibilityType = "Pump Light"
-            break;
+        accessibilityType = "Pump Light"
+        break;
         case 32:
         case 42:
-            accessibilityType = "None"
-            break;
+        accessibilityType = "None"
+        break;
         default:
             accessibilityType = "All"
     }
@@ -306,13 +315,13 @@ def parsePanelData(encodedData) {
     if (pump1ChildDevice != null) {
         switch (decoded[15] & 3) { // Pump 1
             case 1:
-            	pumpState[1] = "low"
-                break
+            pumpState[1] = "low"
+            break
             case 2:
-            	pumpState[1] = "high"
-                break
+            pumpState[1] = "high"
+            break
             default:
-            	pumpState[1] = "off"
+                pumpState[1] = "off"
         }
         pump1ChildDevice.parse(pumpState[1])
     }
@@ -320,11 +329,11 @@ def parsePanelData(encodedData) {
     if (pump2ChildDevice != null) {
         switch (decoded[15] & 12) { // Pump 2
             case 4:
-                pumpState[2] = "low"
-                break
+            pumpState[2] = "low"
+            break
             case 8:
-                pumpState[2] = "high"
-                break
+            pumpState[2] = "high"
+            break
             default:
                 pumpState[2] = "off"
         }
@@ -334,13 +343,13 @@ def parsePanelData(encodedData) {
     if (pump3ChildDevice != null) {
         switch (decoded[15] & 48) { // Pump 3
             case 16:
-            	pumpState[3] = "low"
-                break
+            pumpState[3] = "low"
+            break
             case 32:
-            	pumpState[3] = "high"
-                break
+            pumpState[3] = "high"
+            break
             default:
-            	pumpState[3] = "off"
+                pumpState[3] = "off"
         }
         pump3ChildDevice.parse(pumpState[3])
     }
@@ -348,13 +357,13 @@ def parsePanelData(encodedData) {
     if (pump4ChildDevice != null) {
         switch (decoded[15] & 192) {
             case 64:
-            	pumpState[4] = "low"
-                break
+            pumpState[4] = "low"
+            break
             case 128:
-            	pumpState[4] = "high"
-                break
+            pumpState[4] = "high"
+            break
             default:
-            	pumpState[4] = "off"
+                pumpState[4] = "off"
         }
         pump4ChildDevice.parse(pumpState[4])
     }
@@ -362,13 +371,13 @@ def parsePanelData(encodedData) {
     if (pump5ChildDevice != null) {
         switch (decoded[16] & 3) {
             case 1:
-            	pumpState[5] = "low"
-                break
+            pumpState[5] = "low"
+            break
             case 2:
-            	pumpState[5] = "high"
-                break
+            pumpState[5] = "high"
+            break
             default:
-            	pumpState[5] = "off"
+                pumpState[5] = "off"
         }
         pump5ChildDevice.parse(pumpState[5])
     }
@@ -376,13 +385,13 @@ def parsePanelData(encodedData) {
     if (pump6ChildDevice != null) {
         switch (decoded[16] & 12) {
             case 4:
-            	pumpState[6] = "low"
-                break
+            pumpState[6] = "low"
+            break
             case 8:
-            	pumpState[6] = "high"
-                break
+            pumpState[6] = "high"
+            break
             default:
-            	pumpState[6] = "off"
+                pumpState[6] = "off"
         }
         pump6ChildDevice.parse(pumpState[6])
     }
@@ -390,16 +399,16 @@ def parsePanelData(encodedData) {
     // TODO: Support Blower properly. It's not a switch device type
     switch (decoded[17] & 12) {
         case 4:
-        	blowerState = "low"
-            break
+        blowerState = "low"
+        break
         case 8:
-        	blowerState = "medium"
-            break
+        blowerState = "medium"
+        break
         case 12:
-        	blowerState = "high"
-            break
+        blowerState = "high"
+        break
         default:
-        	blowerState = "off"
+            blowerState = "off"
     }
 
     // Lights
@@ -440,67 +449,66 @@ def parsePanelData(encodedData) {
 
     def wifiState
     switch (decoded[16] & 240) {
-    	case 0:
-        	wifiState = "OK"
-            break
+        case 0:
+        wifiState = "OK"
+        break
         case 16:
-        	wifiState = "Spa Not Communicating"
-            break
+        wifiState = "Spa Not Communicating"
+        break
         case 32:
-        	wifiState = "Startup"
-            break
+        wifiState = "Startup"
+        break
         case 48:
-        	wifiState = "Prime"
-            break
+        wifiState = "Prime"
+        break
         case 64:
-        	wifiState = "Hold"
-            break
+        wifiState = "Hold"
+        break
         case 80:
-        	wifiState = "Panel"
-            break
+        wifiState = "Panel"
+        break
     }
 
     def pumpStateStatus
     if (decoded[15] < 1 && decoded[16] < 1 && (decoded[17] & 3) < 1) {
-    	pumpStateStatus = "Off"
+        pumpStateStatus = "Off"
     } else {
-    	pumpStateStatus = isHeating ? "Low Heat" : "Low"
+        pumpStateStatus = isHeating ? "Low Heat" : "Low"
     }
-
     if (actualTemperature == 255) {
-    	actualTemperature = device.currentValue("temperature") * (temperatureScale == "C" ? 2.0F : 1)
+        actualTemperature = device.currentValue("temperature") * (temperatureScale == "C" ? 2.0F : 1)
     }
 
     if (temperatureScale == "C") {
-    	actualTemperature /= 2.0F
-    	targetTemperature /= 2.0F
+        actualTemperature /= 2.0F
+        targetTemperature /= 2.0F
     }
 
     logDebug ("Actual Temperature: ${actualTemperature}\n"
-                + "Current Time Hour: ${currentTimeHour}\n"
-                + "Current Time Minute: ${currentTimeMinute}\n"
-                + "Is 24-Hour Time: ${is24HourTime}\n"
-                + "Temperature Scale: ${temperatureScale}\n"
-                + "Target Temperature: ${targetTemperature}\n"
-                + "Filter Mode: ${filterMode}\n"
-                + "Accessibility Type: ${accessibilityType}\n"
-                + "Heating Mode: ${heatingMode}\n"
-                + "lightState[1]: ${lightState[1]}\n"
-                + "lightState[2]: ${lightState[2]}\n"
-                + "Heat Mode: ${heatMode}\n"
-                + "Is Heating: ${isHeating}\n"
-                + "pumpState[1]: ${pumpState[1]}\n"
-                + "pumpState[2]: ${pumpState[2]}\n"
-                + "pumpState[3]: ${pumpState[3]}\n"
-                + "pumpState[4]: ${pumpState[4]}\n"
-                + "pumpState[5]: ${pumpState[5]}\n"
-                + "pumpState[6]: ${pumpState[6]}\n"
-                + "blowerState: ${blowerState}\n"
-                + "misterState: ${misterState}\n"
-                + "auxState[1]: ${auxState[1]}\n"
-                + "auxState[2]: ${auxState[2]}\n"
-                + "pumpStateStatus: ${pumpStateStatus}\n"
-                + "wifiState: ${wifiState}\n"
+              + "Current Time Hour: ${currentTimeHour}\n"
+              + "Current Time Minute: ${currentTimeMinute}\n"
+              + "Is 24-Hour Time: ${is24HourTime}\n"
+              + "Temperature Scale: ${temperatureScale}\n"
+              + "Target Temperature: ${targetTemperature}\n"
+              + "Filter Mode: ${filterMode}\n"
+              + "Accessibility Type: ${accessibilityType}\n"
+              + "Heating Mode: ${heatingMode}\n"
+              + "lightState[1]: ${lightState[1]}\n"
+              + "lightState[2]: ${lightState[2]}\n"
+              + "Heat Mode: ${heatMode}\n"
+              + "Is Heating: ${isHeating}\n"
+              + "pumpState[1]: ${pumpState[1]}\n"
+              + "pumpState[2]: ${pumpState[2]}\n"
+              + "pumpState[3]: ${pumpState[3]}\n"
+              + "pumpState[4]: ${pumpState[4]}\n"
+              + "pumpState[5]: ${pumpState[5]}\n"
+              + "pumpState[6]: ${pumpState[6]}\n"
+              + "blowerState: ${blowerState}\n"
+              + "misterState: ${misterState}\n"
+              + "auxState[1]: ${auxState[1]}\n"
+              + "auxState[2]: ${auxState[2]}\n"
+              + "pumpStateStatus: ${pumpStateStatus}\n"
+              + "wifiState: ${wifiState}\n"
              )
 
     sendEvent(name: "spaStatus", value: "${heatMode}\n${isHeating ? "heating to ${targetTemperature}°${temperatureScale}" : "not heating"}")
@@ -515,6 +523,7 @@ def parsePanelData(encodedData) {
     } else {
         sendEvent(name: "switch", value: "off")
     }
+    return true
 }
 
 def fetchChild(createIfDoesntExist, String type, String name, Integer balboaApiButtonNumber = 0) {
