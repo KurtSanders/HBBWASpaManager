@@ -79,7 +79,7 @@ def confirmPage() {
                     def spaManifest = "<ul>"
                     spaConfiguration.each { k, v ->
                         if (v == true) {
-                            spaManifest = spaManifest + "<li style='color:green;font-size:20px'>${k}</li>"
+                            spaManifest = spaManifest + "<li style='color:green;font-size:15px'>${k}</li>"
                         }
                     }
                     paragraph("${spaManifest}</ul>")
@@ -117,9 +117,9 @@ def mainPage() {
         section(sectionHeader("BWA Logging Options")) {
             //Logging Options
             input name: "logLevel", type: "enum", title: fmtTitle("Logging Level"),
-                description: fmtDesc("Logs selected level and above"), defaultValue: 0, options: LOG_LEVELS
+                description: fmtDesc("Logs selected level and above"), defaultValue: 3, options: LOG_LEVELS
             input name: "logLevelTime", type: "enum", title: fmtTitle("Logging Level Time"),
-                description: fmtDesc("Time to enable Debug/Trace logging"),defaultValue: 0, options: LOG_TIMES
+                description: fmtDesc("Time to enable Debug/Trace logging"),defaultValue: 30, options: LOG_TIMES
         }
         section (sectionHeader("Name this instance of ${app.name}")) {
             label name: "name", title: fmtTitle("Assign a name for this app"), required: false, defaultValue: app.name, description: fmtDesc(app.name), submitOnChange: true
@@ -328,7 +328,7 @@ def initialize() {
 }
 
 def pollChildren(refreshOverride=false) {
-    logInfo ("pollChildren()...")
+    logDebug ("pollChildren()...")
     // Check for a location mode that allowed to poll per preference settings
     if (refreshOverride || pollingModes.contains(location.mode)) {
         def devices = getChildDevices()
@@ -348,7 +348,7 @@ def pollChildren(refreshOverride=false) {
             }
         }
     } else {
-        logInfo "Skipping BWA Cloud polling.. Currennt '${location.mode}' mode is not a valid polling mode(s) of '${pollingModes.join(", ")}'"
+        logDebug "Skipping BWA Cloud polling.. Currennt '${location.mode}' mode is not a valid polling mode(s) of '${pollingModes.join(", ")}'"
     }
 }
 
@@ -469,14 +469,14 @@ def sectionHeader(title){
  ***** Logging Functions
 ********************************************************************/
 //Logging Level Options
-@Field static final Map LOG_LEVELS = [0:"Error (Default)", 1:"Warn", 2:"Info", 3:"Debug", 4:"Trace"]
+@Field static final Map LOG_LEVELS = [0:"Error", 1:"Warn", 2:"Info (Default)", 3:"Debug", 4:"Trace"]
 @Field static final Map LOG_TIMES  = [0:"Indefinitely", 30:"30 Minutes", 60:"1 Hour", 120:"2 Hours", 180:"3 Hours", 360:"6 Hours", 720:"12 Hours", 1440:"24 Hours"]
 
 //Call this function from within updated() and configure() with no parameters: checkLogLevel()
 void checkLogLevel(Map levelInfo = [level:null, time:null]) {
 	unschedule(logsOff)
 	//Set Defaults
-	if (settings.logLevel == null) device.updateSetting("logLevel",[value:"0", type:"enum"])
+	if (settings.logLevel == null) device.updateSetting("logLevel",[value:"3", type:"enum"])
 	if (settings.logLevelTime == null) device.updateSetting("logLevelTime",[value:"30", type:"enum"])
 	//Schedule turn off and log as needed
 	if (levelInfo.level == null) levelInfo = getLogLevelInfo()
@@ -497,7 +497,7 @@ void setLogLevel(String levelName, String timeName=null) {
 }
 
 Map getLogLevelInfo() {
-	Integer level = settings.logLevel as Integer ?: 0
+	Integer level = settings.logLevel as Integer ?: 3
 	Integer time = settings.logLevelTime as Integer ?: 0
 	return [level: level, time: time]
 }
@@ -506,7 +506,7 @@ Map getLogLevelInfo() {
 void logsOff() {
 	logWarn "Debug and Trace logging disabled..."
 	if (logLevelInfo.level >= 1) {
-		device.updateSetting("logLevel",[value:"0", type:"enum"])
+		device.updateSetting("logLevel",[value:"2", type:"enum"])
 	}
 }
 
