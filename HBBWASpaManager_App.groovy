@@ -103,7 +103,8 @@ def mainPage() {
         if (state.spa) {
             //Help Link
             section () {
-                input name: "helpInfo", type: "hidden", title: fmtHelpInfo("Hubitat Community Link to ${app.name}")
+                input name: "helpInfo", type: "hidden", title: fmtHelpInfo("Hubitat Community <u>WebLink</u> to ${app.name}")
+                paragraph ("")
             }
             section(sectionHeader("Found the following Spa (you can change the device name on the next page:")) {
                 paragraph("${state.spa["deviceDisplayName"]} ${getImage("checkMarkGreen")}")
@@ -168,13 +169,13 @@ boolean doLogin(){
     switch (resp.status) {
         case 403:
             state.loginResponse = "Access forbidden"
-            state.credentialStatus = "[Disconnected]"
+            state.credentialStatus = getFormat("text-red","[Disconnected]")
             state.token = null
             state.spas = null
             break
         case 401:
             state.loginResponse = resp.data.message
-            state.credentialStatus = "[Disconnected]"
+            state.credentialStatus = getFormat("text-red","[Disconnected]")
             state.token = null
             state.spas = null
             break
@@ -183,7 +184,7 @@ boolean doLogin(){
             loggedIn = true
             state.loginResponse = "Logged in"
             state.token = resp.data.token
-            state.credentialStatus = "[Connected]"
+            state.credentialStatus = getFormat("text-green","[Connected]")
             state.loginDate = toStDateString(new Date())
             cacheSpaData(resp.data.device)
             logInfo ("Done caching SPA data.")
@@ -191,7 +192,7 @@ boolean doLogin(){
         default:
             logDebug (resp.data)
             state.loginResponse = "Login unsuccessful"
-            state.credentialStatus = "[Disconnected]"
+            state.credentialStatus = getFormat("text-red","[Disconnected]")
             state.token = null
             state.spas = null
             break
@@ -433,27 +434,27 @@ String fmtDesc(String str) {
 	return "<div style='font-size: 85%; font-style: italic; padding: 1px 0px 4px 2px;'>${str}</div>"
 }
 String fmtHelpInfo(String str) {
-	String info = "${PARENT_DEVICE_NAME} v${VERSION}"
+	String info =     "${PARENT_DEVICE_NAME} v${VERSION}"
 	String prefLink = "<a href='${COMM_LINK}' target='_blank'>${str}<br><div style='font-size: 70%;'>${info}</div></a>"
 	String topStyle = "style='font-size: 18px; padding: 1px 12px; border: 2px solid Crimson; border-radius: 6px;'" //SlateGray
-	String topLink = "<a ${topStyle} href='${COMM_LINK}' target='_blank'>${str}<br><div style='font-size: 14px;'>${info}</div></a>"
-
-	return "<div style='font-size: 160%; font-style: bold; padding: 2px 0px; text-align: center;'>${prefLink}</div>" +
-		"<div style='text-align: center; position: absolute; top: 46px; right: 60px; padding: 0px;'><ul class='nav'><li>${topLink}</ul></li></div>"
+	String topLink =  "<a ${topStyle} href='${COMM_LINK}' target='_blank'>${str}<br><div style='font-size: 14px;'>${info}</div></a>"
+    return "<div style='text-align: center; position: absolute; top: 0px; left: 400px; padding: 0px;'><ul class='nav'><li>${topLink}</ul></li></div>"
 }
 def getImage(type) {
-    if(type == "Blank") return "<img src=${GITHUB_IMAGES_LINK}/blank.png height=40 width=5}>"
+    if(type == "Blank")          return "<img src=${GITHUB_IMAGES_LINK}/blank.png height=40 width=5}>"
     if(type == "checkMarkGreen") return "<img src=${GITHUB_IMAGES_LINK}/checkMarkGreen2.png height=30 width=30>"
-    if(type == "optionsGreen") return "<img src=${GITHUB_IMAGES_LINK}/options-green.png height=30 width=30>"
-    if(type == "optionsRed") return "<img src=${GITHUB_IMAGES_LINK}/options-red.png height=30 width=30>"
-    if(type == "instructions") return "<img src=${GITHUB_IMAGES_LINK}/instructions.png height=30 width=30>"
+    if(type == "optionsGreen")   return "<img src=${GITHUB_IMAGES_LINK}/options-green.png height=30 width=30>"
+    if(type == "optionsRed")     return "<img src=${GITHUB_IMAGES_LINK}/options-red.png height=30 width=30>"
+    if(type == "instructions")   return "<img src=${GITHUB_IMAGES_LINK}/instructions.png height=30 width=30>"
 }
 
 def getFormat(type, myText="") {
     if(type == "header-blue") return "<div style='color:#ffffff;font-weight: bold;background-color:#309bff;border: 1px solid;box-shadow: 2px 3px #A9A9A9'>${myText}</div>"
-    if(type == "header-red") return "<div style='color:#ffffff;font-weight: bold;background-color:#ff0000;border: 1px solid;box-shadow: 2px 3px #A9A9A9'>${myText}</div>"
-    if(type == "line") return "<hr style='background-color:#1A77C9; height: 1px; border: 0;'>"
-    if(type == "title") return "<h2 style='color:#1A77C9;font-weight: bold'>${myText}</h2>"
+    if(type == "header-red")  return "<div style='color:#ffffff;font-weight: bold;background-color:#ff0000;border: 1px solid;box-shadow: 2px 3px #A9A9A9'>${myText}</div>"
+    if(type == "line")        return "<hr style='background-color:#1A77C9; height: 1px; border: 0;'>"
+    if(type == "title")       return "<h2 style='color:#1A77C9;font-weight: bold'>${myText}</h2>"
+    if(type == "text-green")  return "<div style='color:green'>${myText}</div>"
+    if(type == "text-red")    return "<div style='color:red'>${myText}</div>"
 }
 
 def help() {
