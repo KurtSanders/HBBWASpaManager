@@ -86,8 +86,6 @@ metadata {
 
         command "setReadyMode"
         command "setTempRange"
-//        command "setLogLevel", [ [name:"Select Level*", description:"Log this type of message and above", type: "ENUM", constraints: LOG_LEVELS],
-//                                [name:"Debug/Trace Time", description:"Timer for Debug/Trace logging", type: "ENUM", constraints: LOG_TIMES] ]
     }
 }
 
