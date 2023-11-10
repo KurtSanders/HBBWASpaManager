@@ -47,7 +47,6 @@ metadata {
 }
 
 void parse(input) {
-    logDebug ("Switch input: '${input}'")
     switch (input) {
         case "on":
         case "true":
