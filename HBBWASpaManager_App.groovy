@@ -278,10 +278,10 @@ def doCallout(calloutMethod, urlPath, calloutBody, contentType, queryParams) {
                 break
         }
     } catch (groovyx.net.http.HttpResponseException e) {
-    	logErr e
+    	logWarn e
         return e.response
     } catch (e) {
-        logErr "Something went wrong: ${e}"
+        logWarn "Something went wrong: ${e}"
         return [error: e.message]
     }
 
@@ -337,7 +337,7 @@ def pollChildren(refreshOverride=false) {
         devices.each {
             def deviceId = it.currentValue("deviceId", true)
             if (deviceId == null) {
-                logErr ("Error, deviceId was null. Didn't actually poll the server or spa or BWA cloud is Offline? Retrying in 5 seconds...")
+                logWarn ("Error, deviceId was null. Didn't actually poll the server or spa or BWA cloud is Offline? Retrying in 5 seconds...")
                 runIn(5, pollChildren)
                 return
             }
@@ -345,7 +345,7 @@ def pollChildren(refreshOverride=false) {
             if (deviceData != null) {
                 it.parsePanelData(deviceData)
             } else {
-                logErr ("BWA Cloud did not successfully return any data for the SPA, Retrying in 5 secords....")
+                logWarn ("BWA Cloud did not successfully return any data for the SPA, Retrying in 5 secords....")
                 runIn(5, pollChildren)
             }
         }
