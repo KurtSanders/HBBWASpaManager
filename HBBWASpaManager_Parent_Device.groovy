@@ -230,9 +230,9 @@ def parsePanelData(encodedData) {
     // Check for a valid SPA array prefix
     if (decoded[0..2] != VALID_SPA_BYTE_ARRAY) {
         if (encodedData != null) {
-            log.warn "BWA Cloud Spa Error: encodedData '${encodedData}' is NOT a valid SPA panel data.   Is the Spa Online?"
+            logWarn "BWA Cloud Spa Error: encodedData '${encodedData}' is NOT a valid SPA panel data.   Is the Spa Online?"
         } else {
-            log.warn "BWA Cloud Spa Error: SPA panel data was (null).  Is the Spa Online?"
+            logWarn "BWA Cloud Spa Error: SPA panel data was (null).  Is the Spa Online?"
             encodedData = "Spa Cloud was null"
         }
         sendEvent(name: "online", value: "Offline")

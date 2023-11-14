@@ -273,7 +273,7 @@ def doCallout(calloutMethod, urlPath, calloutBody, contentType, queryParams) {
                 }
                 break
             default:
-                log.error "unhandled method"
+                logErr "unhandled method"
                 return [error: "unhandled method"]
                 break
         }
@@ -319,7 +319,7 @@ def initialize() {
         }
         childDevices.add(childDevice)
     } catch (e) {
-        log.error "Error creating device: ${e}"
+        logErr "Error creating device: ${e}"
     }
 
     // set up polling only if we have child devices
