@@ -469,21 +469,22 @@ def sectionHeader(title){
 
 /*******************************************************************
  ***** Logging Functions
-********************************************************************/
+********************A************************************************/
 //Logging Level Options
-@Field static final Map LOG_LEVELS = [0:"Error", 1:"Warn", 2:"Info (Default)", 3:"Debug", 4:"Trace"]
+@Field static final Map LOG_LEVELS = [0:"Off", 1:"Error", 2:"Warn", 3:"Info", 4:"Debug", 5:"Trace"]
 @Field static final Map LOG_TIMES  = [0:"Indefinitely", 30:"30 Minutes", 60:"1 Hour", 120:"2 Hours", 180:"3 Hours", 360:"6 Hours", 720:"12 Hours", 1440:"24 Hours"]
+@Field static final String LOG_DEFAULT_LEVEL = 0
 
 //Call this function from within updated() and configure() with no parameters: checkLogLevel()
 void checkLogLevel(Map levelInfo = [level:null, time:null]) {
 	unschedule(logsOff)
 	//Set Defaults
-	if (settings.logLevel == null) device.updateSetting("logLevel",[value:"3", type:"enum"])
-	if (settings.logLevelTime == null) device.updateSetting("logLevelTime",[value:"30", type:"enum"])
+	if (settings.logLevel == null) device.updateSetting("logLevel",[value:LOG_DEFAULT_LEVEL, type:"enum"])
+	if (settings.logLevelTime == null) device.updateSetting("logLevelTime",[value:"0", type:"enum"])
 	//Schedule turn off and log as needed
 	if (levelInfo.level == null) levelInfo = getLogLevelInfo()
 	String logMsg = "Logging Level is: ${LOG_LEVELS[levelInfo.level]} (${levelInfo.level})"
-	if (levelInfo.level >= 3 && levelInfo.time > 0) {
+	if (levelInfo.level >= 1 && levelInfo.time > 0) {
 		logMsg += " for ${LOG_TIMES[levelInfo.time]}"
 		runIn(60*levelInfo.time, logsOff)
 	}
@@ -499,7 +500,7 @@ void setLogLevel(String levelName, String timeName=null) {
 }
 
 Map getLogLevelInfo() {
-	Integer level = settings.logLevel as Integer ?: 3
+	Integer level = settings.logLevel as Integer ?: 0
 	Integer time = settings.logLevelTime as Integer ?: 0
 	return [level: level, time: time]
 }
@@ -508,7 +509,7 @@ Map getLogLevelInfo() {
 void logsOff() {
 	logWarn "Debug and Trace logging disabled..."
 	if (logLevelInfo.level >= 1) {
-		device.updateSetting("logLevel",[value:"2", type:"enum"])
+		device.updateSetting("logLevel",[value:"0", type:"enum"])
 	}
 }
 
@@ -517,14 +518,14 @@ void logErr(String msg) {
 	log.error "${app.displayName}: ${msg}"
 }
 void logWarn(String msg) {
-	if (logLevelInfo.level>=1) log.warn "${app.name}: ${msg}"
+	if (logLevelInfo.level>=2) log.warn "${app.name}: ${msg}"
 }
 void logInfo(String msg) {
-	if (logLevelInfo.level>=2) log.info "${app.name}: ${msg}"
+	if (logLevelInfo.level>=3) log.info "${app.name}: ${msg}"
 }
 void logDebug(String msg) {
-	if (logLevelInfo.level>=3) log.debug "${app.name}: ${msg}"
+	if (logLevelInfo.level>=4) log.debug "${app.name}: ${msg}"
 }
 void logTrace(String msg) {
-	if (logLevelInfo.level>=4) log.trace "${app.name}: ${msg}"
+	if (logLevelInfo.level>=5) log.trace "${app.name}: ${msg}"
 }
