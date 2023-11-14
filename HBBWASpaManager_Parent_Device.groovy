@@ -509,7 +509,7 @@ def parsePanelData(encodedData) {
               + "wifiState: ${wifiState}\n"
              )
 
-    sendEvent(name: "spaStatus", value: "${heatMode}\n${isHeating ? "heating to ${targetTemperature}°${temperatureScale}" : "not heating"}")
+    sendEvent(name: "spaStatus", value: "${heatMode} ${isHeating ? "heating to ${targetTemperature}°${temperatureScale}" : "not heating"}")
     sendEvent(name: "ReadyMode", value: "${heatMode}")
     sendEvent(name: "TempRange", value: "${heatingMode}")
     sendEvent(name: "updated_at", value: "${now}")
