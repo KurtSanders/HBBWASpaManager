@@ -2,6 +2,7 @@
 <img src="https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/master/images/hot-tub.png" width="50"> (forked from [richardpowellus/HBBWASpaManager](https://github.com/richardpowellus/HBBWASpaManager)
 
 <img src="https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/master/images/HE dashboard screenshot-1.jpg">
+* Dashboard and Tiles customized by [Tile Master by BPTWorld apps](https://community.hubitat.com/t/release-tile-master-display-multiple-devices-that-can-be-controlled-from-the-tile/23140)
 
 ### Integrate your spa to the Hubitat environment with the following features:
 1. View real-time temperature
