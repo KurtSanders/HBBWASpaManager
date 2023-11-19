@@ -54,7 +54,7 @@ import groovy.time.TimeCategory
 
 @Field static String THERMOSTAT_CHILD_DEVICE_NAME = "HB BWA SPA Thermostat"
 @Field static String SWITCH_CHILD_DEVICE_NAME = "HB BWA SPA Switch"
-
+@Field static String UNKNOWN = "Unknown"
 
 metadata {
     definition (name: PARENT_DEVICE_NAME, namespace: NAMESPACE, author: "Kurt Sanders") {
@@ -236,7 +236,22 @@ def parsePanelData(encodedData) {
             encodedData = "Spa Cloud was null"
         }
         sendEvent(name: "online", value: "Offline")
+        sendEvent(name: "spaStatus", value: UNKNOWN)
+        sendEvent(name: "ReadyMode", value: UNKNOWN)
+        sendEvent(name: "TempRange", value: UNKNOWN)
         sendEvent(name: "updated_at", value: "${encodedData} at ${now}")
+        // Send events to Thermostat child device
+        def thermostatChildDevice = fetchChild(false, "Thermostat", "Thermostat")
+        if (thermostatChildDevice != null) {
+            thermostatChildDevice.sendEvents([
+                [name: "temperature", value: -1 ],
+                [name: "heatingSetpoint", value: -1],
+                [name: "thermostatMode", value: UNKNOWN],
+                [name: "thermostatOperatingState", value: UNKNOWN]
+            ])
+        }
+
+
         return false
     }
     def is24HourTime = (decoded[13] & 2) != 0 ? true : false
