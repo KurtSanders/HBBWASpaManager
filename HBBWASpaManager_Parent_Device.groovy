@@ -62,6 +62,8 @@ metadata {
         capability "Configuration"
         capability "Actuator"
         capability "Switch"
+        capability "Sensor"
+
 
         /* This is a list of attributes sent to us right after we successfully login
          * to Balboa and pull details about Spas linked to the user's account.
@@ -83,6 +85,13 @@ metadata {
         attribute "ReadyMode", "enum", ["Ready", "Rest"]
         attribute "TempRange", "enum", ["low", "high"]
         attribute "online", "enum", ["Online","Offline"]
+        attribute "wifiState", "enum", ["WiFi OK","WiFi Spa Not Communicating","WiFi Startup","WiFi Prime","WiFi Hold","WiFi Panel","WiFi Unnknown"]
+        attribute "temperature", "number"
+        attribute "ThermostatHeatingSetpoint", "number"
+        attribute "ThermostatSetpoint", "number"
+        attribute "TemperatureMeasurement", "number"
+        attribute "ThermostatMode", "number"
+        attribute "ThermostatOperatingState", "number"
 
         command "setReadyMode"
         command "setTempRange"
@@ -237,21 +246,16 @@ def parsePanelData(encodedData) {
         }
         sendEvent(name: "online", value: "Offline")
         sendEvent(name: "spaStatus", value: UNKNOWN)
-        sendEvent(name: "ReadyMode", value: UNKNOWN)
-        sendEvent(name: "TempRange", value: UNKNOWN)
         sendEvent(name: "updated_at", value: "${encodedData} at ${now}")
         // Send events to Thermostat child device
         def thermostatChildDevice = fetchChild(false, "Thermostat", "Thermostat")
         if (thermostatChildDevice != null) {
             thermostatChildDevice.sendEvents([
                 [name: "temperature", value: -1 ],
-                [name: "heatingSetpoint", value: -1],
-                [name: "thermostatMode", value: UNKNOWN],
-                [name: "thermostatOperatingState", value: UNKNOWN]
+                [name: "thermostatMode", value: "off"],
+                [name: "thermostatOperatingState", value: "idle"]
             ])
         }
-
-
         return false
     }
     def is24HourTime = (decoded[13] & 2) != 0 ? true : false
@@ -284,7 +288,8 @@ def parsePanelData(encodedData) {
     if (thermostatChildDevice != null) {
         thermostatChildDevice.sendEventsWithUnits([
             [name: "temperature", value: actualTemperature, unit: temperatureScale],
-            [name: "heatingSetpoint", value: targetTemperature, unit: temperatureScale]
+            [name: "heatingSetpoint", value: targetTemperature, unit: temperatureScale],
+            [name: "thermostatSetpoint", value: actualTemperature, unit: temperatureScale]
         ])
         thermostatChildDevice.sendEvents([
             [name: "thermostatMode", value: isHeating ? "heat" : "off"],
@@ -463,23 +468,25 @@ def parsePanelData(encodedData) {
     def wifiState
     switch (decoded[16] & 240) {
         case 0:
-        wifiState = "OK"
+        wifiState = "WiFi OK"
         break
         case 16:
-        wifiState = "Spa Not Communicating"
+        wifiState = "WiFi Spa Not Communicating"
         break
         case 32:
-        wifiState = "Startup"
+        wifiState = "WiFi Startup"
         break
         case 48:
-        wifiState = "Prime"
+        wifiState = "WiFi Prime"
         break
         case 64:
-        wifiState = "Hold"
+        wifiState = "WiFi Hold"
         break
         case 80:
-        wifiState = "Panel"
+        wifiState = "WiFi Panel"
         break
+        default:
+            wifiState = "Unknown"
     }
 
     def pumpStateStatus
@@ -524,12 +531,17 @@ def parsePanelData(encodedData) {
               + "wifiState: ${wifiState}\n"
              )
 
-    sendEvent(name: "spaStatus", value: "${heatMode} ${isHeating ? "heating to ${targetTemperature}°${temperatureScale}" : "not heating"}")
-    sendEvent(name: "ReadyMode", value: "${heatMode}")
-    sendEvent(name: "TempRange", value: "${heatingMode}")
-    sendEvent(name: "updated_at", value: "${now}")
-    sendEvent(name: "online", value: "Online")
-
+    sendEvent(name: "spaStatus",                 value: "${heatMode} ${isHeating ? "heating to ${targetTemperature}°${temperatureScale}" : "not heating"}")
+    sendEvent(name: "ReadyMode",                 value: "${heatMode}")
+    sendEvent(name: "TempRange",                 value: "${heatingMode}")
+    sendEvent(name: "updated_at",                value: "${now}")
+    sendEvent(name: "online",                    value: "Online")
+    sendEvent(name: "wifiState",                 value: "${wifiState}")
+    sendEvent(name: "temperature",               value: actualTemperature, unit: temperatureScale)
+    sendEvent(name: "heatingSetpoint",           value: targetTemperature, unit: temperatureScale)
+    sendEvent(name: "thermostatSetpoint",        value: actualTemperature, unit: temperatureScale)
+    sendEvent(name: "thermostatMode",            value: isHeating ? "heat" : "off")
+    sendEvent(name: "thermostatOperatingState",  value: isHeating ? "heating" : "idle")
 
     if (device.currentValue("ReadyMode") == "Ready" && device.currentValue("TempRange") == "high") {
         sendEvent(name: "switch", value: "on")

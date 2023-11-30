@@ -31,6 +31,7 @@
  */
 
 import groovy.transform.Field
+import groovyx.net.http.HttpResponseException
 
 @Field static String AUTHOR_NAME               = "Kurt Sanders"
 @Field static String NAMESPACE                 = "kurtsanders"
@@ -87,7 +88,8 @@ def confirmPage() {
                 }
         } else {
             section(sectionHeader("Spa Not Responding")) {
-                paragraph "The Spa is not responding to BWA cloud, please check to see if it is online"
+                paragraph getFormat("text-red","${state.HttpResponseExceptionReponse}")
+                paragraph "The Spa is not responding to BWA cloud, please check to see if the spa is online"
             }
         }
     }
@@ -278,8 +280,9 @@ def doCallout(calloutMethod, urlPath, calloutBody, contentType, queryParams) {
                 break
         }
     } catch (groovyx.net.http.HttpResponseException e) {
-    	logWarn e
-        return e.response
+        state.HttpResponseExceptionReponse = "${e.response.status} ${e.response.statusLine.reasonPhrase}"
+        logWarn state.HttpResponseExceptionReponse
+        return e.response.success
     } catch (e) {
         logWarn "Something went wrong: ${e}"
         return [error: e.message]
@@ -358,12 +361,16 @@ def pollChildren(refreshOverride=false) {
 def getDeviceConfiguration(device_id) {
     logDebug ("Getting device configuration for ${device_id}")
     def resp = doCallout("POST", "/devices/sci", getXmlRequest(device_id, "DeviceConfiguration"), "xml")
-    return resp.data
+    if (resp != false){
+        return resp.data
+    }
+    return resp
 }
 
 // Decode the encoded configuration data received from Balboa
 def ParseDeviceConfigurationData(encodedData) {
     logTrace ("encodedData: '${encodedData}'")
+    if (encodedData == null || encodedData == false) return
     byte[] decoded = encodedData.decodeBase64()
     logTrace ("decoded: '${decoded}'")
     def returnValue = [:]
