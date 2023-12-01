@@ -30,7 +30,7 @@
 
 #### v1.2.0 - Nov-11-2023
 
-* V1.2.0 code stream now maintained by Kurt Sanders (Previous versions were maintained by [Richard Powell](https://github.com/richardpowellus/HBBWASpaManager))
+* V1.2.0 code stream now maintained by Kurt Sanders .  Previous versions were maintained by [Richard Powell](https://github.com/richardpowellus/HBBWASpaManager))
 * Changed namespace to 'kurtsanders' in app and drivers
 * Moved hardcoded logging values in driver to UI preferences and added logging expire timeout logic.
 * Added 'Switch Capability' in device parent for:
@@ -39,3 +39,10 @@
 * Added capability "Actuator" and attribute "ReadyMode", "enum", ["Ready", "Rest"] with command "setReadyMode"
 * Added attribute "TempRange", "enum", ["low", "high"] and command "setTempRange"
 * Added app and drivers to [HPM Public Install App](https://hubitatpackagemanager.hubitatcommunity.com/) for easier install and updates
+* Added custom polling periods by selecting your own Hubitat mode names (e.g. home, night, away, vacation, etc) to reduce app polling during times when it is not needed, thus reducing load on HE Hub and BWA cloud.
+* Modified spa thermostat driver to allow incremental changes (up/down) in the thermostat dashboard UI to the spa's **Heat point temperature**. 
+* Added new attributes to Spa Parent device: 
+  * wifiState ["WiFi OK","WiFi Spa Not Communicating","WiFi Startup","WiFi Prime","WiFi Hold","WiFi Panel","WiFi Unnknown"]
+  * spaStatus 'Message String' 
+  * online ["Online","Offline"] 
+  * updated_at (last poll timestamp and any error messages from the BWA cloud)
