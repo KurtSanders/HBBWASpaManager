@@ -1,4 +1,4 @@
-# HBBWASpaManager 
+# HB BWA SpaManager 
 <img src="https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/master/images/hot-tub.png" width="50"> (forked from [richardpowellus/HBBWASpaManager](https://github.com/richardpowellus/HBBWASpaManager)
 
 <img src="https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/master/images/HE dashboard screenshot-1.jpg">
