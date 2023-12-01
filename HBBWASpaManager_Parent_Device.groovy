@@ -49,7 +49,7 @@ import groovy.time.TimeCategory
 @Field static String DEVICE_NAME_PREFIX = "HB BWA SPA"
 @Field static String PARENT_DEVICE_NAME = "HB BPA SPA Parent"
 @Field static final String VERSION = "1.2.0"
-@Field static final String COMM_LINK = "https://community.hubitat.com/t/balboa-spa-controller-app/18194/45"
+@Field static final String COMM_LINK = "https://community.hubitat.com/t/release-hb-bwa-spamanager/128842"
 @Field static final List VALID_SPA_BYTE_ARRAY = [29, -1, -81]
 
 @Field static String THERMOSTAT_CHILD_DEVICE_NAME = "HB BWA SPA Thermostat"
