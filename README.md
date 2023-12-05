@@ -30,8 +30,4 @@
 
 ### Version Notes
 
-Change-log & Version Release Features
-
-#### v1.2.0 - Dec-01-2023
-
-* V1.2.0 code stream and newer releases are now maintained by this repository and ownner.  Previous software versions were maintained by [Richard Powell](https://github.com/richardpowellus/HBBWASpaManager))
+* [Change-log & Version Release Features](https://github.com/KurtSanders/HBBWASpaManager/wiki/Features-by-Version)
