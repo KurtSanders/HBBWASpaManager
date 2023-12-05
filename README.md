@@ -5,7 +5,9 @@
 
 * Dashboard and Tiles shown above have been customized by [Tile Master by BPTWorld apps](https://community.hubitat.com/t/release-tile-master-display-multiple-devices-that-can-be-controlled-from-the-tile/23140)
 
-<img src="https://raw.githubusercontent.com/KurtSanders/STAmbientWeather/master/images/readme.png" width="50">[Change-log & Version Release Features](https://github.com/KurtSanders/HBBWASpaManager/wiki/Features-by-Version)
+<img src="https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/master/images/readme.png" width="50">[Change-log & Version Release Features](https://github.com/KurtSanders/HBBWASpaManager/wiki/Features-by-Version)
+
+<img src="https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/master/images/Help-Logo.png" width="50">[Hubitat Community Support Thread](https://community.hubitat.com/t/release-hb-bwa-spamanager/128842)
 
 ### Integrate your spa to the Hubitat environment with the following features:
 1. View real-time temperature
