@@ -6,7 +6,7 @@
   "dateReleased": "2023-12-05",
   "documentationLink": "https://github.com/KurtSanders/HBBWASpaManager/blob/master/README.md",
   "licenseFile": "",
-  "releaseNotes": "Version 1.2.1 by Kurt Sanders\n\nAdded missing checkLogLevel() for logging timeout.\n\n2.Added prefix 'Updated at:' to updated_at timestamp attribute and corrected Community WebLink in Spa Parent Driver.",
+  "releaseNotes": "Version 1.2.1 by Kurt Sanders\n\n1. Added missing checkLogLevel() for logging timeout.\n\n2. Added prefix 'Updated at:' to updated_at timestamp attribute in Spa Parent Driver.\n\n3.Corrected Community WebLink in Spa Parent Driver.",
   "apps": [
     {
       "id": "bc4ae4ab-f0eb-4505-a677-21ce430b3823",
