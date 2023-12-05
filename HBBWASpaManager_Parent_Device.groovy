@@ -39,6 +39,7 @@
  *                              Added app and drivers to HPM Public Install App
  *                              Added attribute attribute 'online', 'enum', ['Online','Offline'] to monitor spa network connectivity
  *                              Added attribute 'updated_at' to track the timestamp of the current Spa readings
+ *  1.2.1       2023-12-05      V1.2.1 Corrected Community WebbLink
  */
 
 import groovy.transform.Field
@@ -48,7 +49,7 @@ import groovy.time.TimeCategory
 
 @Field static String DEVICE_NAME_PREFIX = "HB BWA SPA"
 @Field static String PARENT_DEVICE_NAME = "HB BPA SPA Parent"
-@Field static final String VERSION = "1.2.0"
+@Field static final String VERSION = "1.2.1"
 @Field static final String COMM_LINK = "https://community.hubitat.com/t/release-hb-bwa-spamanager/128842"
 @Field static final List VALID_SPA_BYTE_ARRAY = [29, -1, -81]
 
@@ -246,7 +247,7 @@ def parsePanelData(encodedData) {
         }
         sendEvent(name: "online", value: "Offline")
         sendEvent(name: "spaStatus", value: UNKNOWN)
-        sendEvent(name: "updated_at", value: "${encodedData} at ${now}")
+        sendEvent(name: "updated_at", value: "Updated at: ${now} \nError: n${encodedData} ")
         // Send events to Thermostat child device
         def thermostatChildDevice = fetchChild(false, "Thermostat", "Thermostat")
         if (thermostatChildDevice != null) {
@@ -534,7 +535,7 @@ def parsePanelData(encodedData) {
     sendEvent(name: "spaStatus",                 value: "${heatMode} ${isHeating ? "heating to ${targetTemperature}°${temperatureScale}" : "not heating"}")
     sendEvent(name: "ReadyMode",                 value: "${heatMode}")
     sendEvent(name: "TempRange",                 value: "${heatingMode}")
-    sendEvent(name: "updated_at",                value: "${now}")
+    sendEvent(name: "updated_at",                value: "Updated at: ${now}")
     sendEvent(name: "online",                    value: "Online")
     sendEvent(name: "wifiState",                 value: "${wifiState}")
     sendEvent(name: "temperature",               value: actualTemperature, unit: temperatureScale)

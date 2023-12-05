@@ -28,6 +28,7 @@
  *                              Added logging expire timeout logic
  *                              Added App to HPM Public Install App
  *                              Added several error traps for unexpected conditions, like spa offline, BWA Cloud errors, etc.
+ *  1.2.1       2023-12-05      V1.2.1 Added missing checkLogLevel() for logging timeout.
  */
 
 import groovy.transform.Field
@@ -36,7 +37,7 @@ import groovyx.net.http.HttpResponseException
 @Field static String AUTHOR_NAME               = "Kurt Sanders"
 @Field static String NAMESPACE                 = "kurtsanders"
 @Field static String PARENT_DEVICE_NAME        = "BWA Spa Manager"
-@Field static final String VERSION             = "1.2.0"
+@Field static final String VERSION             = "1.2.1"
 @Field static final String COMM_LINK           = "https://community.hubitat.com/t/release-hb-bwa-spamanager/128842"
 @Field static final String GITHUB_LINK         = "https://github.com/KurtSanders/HBBWASpaManager"
 @Field static final String GITHUB_IMAGES_LINK  = "https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/master/images"
@@ -330,6 +331,7 @@ def initialize() {
         pollChildren()
         "runEvery${pollingInterval}Minute${pollingInterval != "1" ? 's' : ''}"("pollChildren")
     } else unschedule(pollChildren)
+    checkLogLevel()
 }
 
 def pollChildren(refreshOverride=false) {
