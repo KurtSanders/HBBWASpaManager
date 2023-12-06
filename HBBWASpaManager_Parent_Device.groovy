@@ -610,9 +610,9 @@ String fmtHelpInfo(String str) {
 preferences {
 	//Logging Options
 	input name: "logLevel", type: "enum", title: fmtTitle("Logging Level"),
-		description: fmtDesc("Logs selected level and above"), defaultValue: 3, options: LOG_LEVELS
+		description: fmtDesc("Logs selected level and above"), defaultValue: 0, options: LOG_LEVELS
 	input name: "logLevelTime", type: "enum", title: fmtTitle("Logging Level Time"),
-		description: fmtDesc("Time to enable Debug/Trace logging"),defaultValue: 30, options: LOG_TIMES
+		description: fmtDesc("Time to enable Debug/Trace logging"),defaultValue: 0, options: LOG_TIMES
 	//Help Link
 	input name: "helpInfo", type: "hidden", title: fmtHelpInfo("Community Link")
 }
