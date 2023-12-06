@@ -248,7 +248,7 @@ def parsePanelData(encodedData) {
         }
         sendEvent(name: "online", value: "Offline")
         sendEvent(name: "spaStatus", value: UNKNOWN)
-        sendEvent(name: "updated_at", value: "Updated at: ${now} \nError: n${encodedData} ")
+        sendEvent(name: "updated_at", value: "Updated at: ${now} \nError: ${encodedData} ")
         // Send events to Thermostat child device
         def thermostatChildDevice = fetchChild(false, "Thermostat", "Thermostat")
         if (thermostatChildDevice != null) {
