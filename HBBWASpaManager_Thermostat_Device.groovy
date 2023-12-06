@@ -33,7 +33,7 @@ import groovy.time.TimeCategory
 
 @Field static String THERMOSTAT_CHILD_DEVICE_NAME_PREFIX = "HB BWA SPA Thermostat"
 @Field static String PARENT_DEVICE_NAME = "HB BWA SPA Thermostat"
-@Field static final String VERSION = "1.2.0"
+@Field static final String VERSION = "1.2.2"
 @Field static final List THERMO_STAT_MODES = ["heat","off"]
 @Field static final List THERMO_STAT_OPERATING_STATE = ["heating", "idle", "pending heat"]
 @Field static final List THERMO_STAT_FAN_MODES = ["off", "circulate"]

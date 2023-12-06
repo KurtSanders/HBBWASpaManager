@@ -38,7 +38,7 @@ import groovyx.net.http.HttpResponseException
 @Field static String AUTHOR_NAME               = "Kurt Sanders"
 @Field static String NAMESPACE                 = "kurtsanders"
 @Field static String PARENT_DEVICE_NAME        = "BWA Spa Manager"
-@Field static final String VERSION             = "1.2.1"
+@Field static final String VERSION             = "1.2.2"
 @Field static final String COMM_LINK           = "https://community.hubitat.com/t/release-hb-bwa-spamanager/128842"
 @Field static final String GITHUB_LINK         = "https://github.com/KurtSanders/HBBWASpaManager"
 @Field static final String GITHUB_IMAGES_LINK  = "https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/master/images"

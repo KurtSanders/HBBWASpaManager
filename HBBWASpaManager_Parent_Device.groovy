@@ -50,7 +50,7 @@ import groovy.time.TimeCategory
 
 @Field static String DEVICE_NAME_PREFIX = "HB BWA SPA"
 @Field static String PARENT_DEVICE_NAME = "HB BPA SPA Parent"
-@Field static final String VERSION = "1.2.1"
+@Field static final String VERSION = "1.2.2"
 @Field static final String COMM_LINK = "https://community.hubitat.com/t/release-hb-bwa-spamanager/128842"
 @Field static final List VALID_SPA_BYTE_ARRAY = [29, -1, -81]
 
