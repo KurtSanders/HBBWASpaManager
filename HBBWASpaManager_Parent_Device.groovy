@@ -39,7 +39,8 @@
  *                              Added app and drivers to HPM Public Install App
  *                              Added attribute attribute 'online', 'enum', ['Online','Offline'] to monitor spa network connectivity
  *                              Added attribute 'updated_at' to track the timestamp of the current Spa readings
- *  1.2.1       2023-12-05      V1.2.1 Corrected Community WebbLink
+ *  1.2.1       2023-12-05      Corrected Community WebbLink
+ *  1.2.1       2023-12-05      Added additional logging tmeouts to be consistent with the app
  */
 
 import groovy.transform.Field
@@ -602,7 +603,7 @@ String fmtHelpInfo(String str) {
 ********************A************************************************/
 //Logging Level Options
 @Field static final Map LOG_LEVELS = [0:"Off", 1:"Error", 2:"Warn", 3:"Info", 4:"Debug", 5:"Trace"]
-@Field static final Map LOG_TIMES  = [0:"Indefinitely", 30:"30 Minutes", 60:"1 Hour", 120:"2 Hours", 180:"3 Hours", 360:"6 Hours", 720:"12 Hours", 1440:"24 Hours"]
+@Field static final Map LOG_TIMES  = [0:"Indefinitely", 01:"01 Minute", 05:"05 Minutes", 15:"15 Minutes", 30:"30 Minutes", 60:"1 Hour", 120:"2 Hours", 180:"3 Hours", 360:"6 Hours", 720:"12 Hours", 1440:"24 Hours"]
 @Field static final String LOG_DEFAULT_LEVEL = 0
 
 //Additional Preferences
@@ -656,7 +657,7 @@ void logsOff() {
 
 //Logging Functions
 void logErr(String msg) {
-	log.error "${app.displayName}: ${msg}"
+	if (logLevelInfo.level>=1) log.error "${app.displayName}: ${msg}"
 }
 void logWarn(String msg) {
 	if (logLevelInfo.level>=2) log.warn "${app.name}: ${msg}"

@@ -1,13 +1,13 @@
 {
   "packageName": "BWA Spa Manager",
   "author": "Kurt Sanders",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "minimumHEVersion": "2.3.6",
-  "dateReleased": "2023-12-05",
+  "dateReleased": "2023-12-06",
   "documentationLink": "https://github.com/KurtSanders/HBBWASpaManager/blob/master/README.md",
   "communityLink": "https://community.hubitat.com/t/release-hb-bwa-spamanager/128842",
   "licenseFile": "",
-  "releaseNotes": "Version 1.2.1 by Kurt Sanders\n\n1. Added missing checkLogLevel() for logging timeout.\n\n2. Added prefix 'Updated at:' to updated_at timestamp attribute in Spa Parent Driver.\n\n3.Corrected Community WebLink in Spa Parent Driver.",
+  "releaseNotes": "Version 1.2.2 by Kurt Sanders\n\n1. Bug Fix for logging timeout period.\n\nAdded additional logging time-out periods",
   "apps": [
     {
       "id": "bc4ae4ab-f0eb-4505-a677-21ce430b3823",

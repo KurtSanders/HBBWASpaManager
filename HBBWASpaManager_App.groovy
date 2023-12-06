@@ -28,7 +28,8 @@
  *                              Added logging expire timeout logic
  *                              Added App to HPM Public Install App
  *                              Added several error traps for unexpected conditions, like spa offline, BWA Cloud errors, etc.
- *  1.2.1       2023-12-05      V1.2.1 Added missing checkLogLevel() for logging timeout.
+ *  1.2.1       2023-12-05      Added missing checkLogLevel() for logging timeout.
+ *  1.2.2       2023-12-06      Bug Fix for logging timeout periods and levels.
  */
 
 import groovy.transform.Field
@@ -481,7 +482,7 @@ def sectionHeader(title){
 ********************A************************************************/
 //Logging Level Options
 @Field static final Map LOG_LEVELS = [0:"Off", 1:"Error", 2:"Warn", 3:"Info", 4:"Debug", 5:"Trace"]
-@Field static final Map LOG_TIMES  = [0:"Indefinitely", 30:"30 Minutes", 60:"1 Hour", 120:"2 Hours", 180:"3 Hours", 360:"6 Hours", 720:"12 Hours", 1440:"24 Hours"]
+@Field static final Map LOG_TIMES  = [0:"Indefinitely", 1:"01 Minute", 5:"05 Minutes", 10:"10 Minutes", 15:"15 Minutes", 30:"30 Minutes", 60:"1 Hour", 120:"2 Hours", 180:"3 Hours", 360:"6 Hours", 720:"12 Hours", 1440:"24 Hours"]
 @Field static final String LOG_DEFAULT_LEVEL = 0
 
 //Call this function from within updated() and configure() with no parameters: checkLogLevel()
@@ -504,7 +505,7 @@ void checkLogLevel(Map levelInfo = [level:null, time:null]) {
 void setLogLevel(String levelName, String timeName=null) {
 	Integer level = LOG_LEVELS.find{ levelName.equalsIgnoreCase(it.value) }.key
 	Integer time = LOG_TIMES.find{ timeName.equalsIgnoreCase(it.value) }.key
-	device.updateSetting("logLevel",[value:"${level}", type:"enum"])
+	app.updateSetting("logLevel",[value:"${level}", type:"enum"])
 	checkLogLevel(level: level, time: time)
 }
 
@@ -516,15 +517,15 @@ Map getLogLevelInfo() {
 
 //Current Support
 void logsOff() {
-	logWarn "Debug and Trace logging disabled..."
+	log.info "Debug and Trace logging disabled..."
 	if (logLevelInfo.level >= 1) {
-		device.updateSetting("logLevel",[value:"0", type:"enum"])
+		app.updateSetting("logLevel",[value:"0", type:"enum"])
 	}
 }
 
 //Logging Functions
 void logErr(String msg) {
-	log.error "${app.displayName}: ${msg}"
+	if (logLevelInfo.level>=1) log.error "${app.displayName}: ${msg}"
 }
 void logWarn(String msg) {
 	if (logLevelInfo.level>=2) log.warn "${app.name}: ${msg}"
