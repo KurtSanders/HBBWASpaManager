@@ -7,7 +7,7 @@
   "documentationLink": "https://github.com/KurtSanders/HBBWASpaManager/blob/master/README.md",
   "communityLink": "https://community.hubitat.com/t/release-hb-bwa-spamanager/128842",
   "licenseFile": "",
-  "releaseNotes": "Version 1.2.2 by Kurt Sanders\n\n1. Bug Fix for logging timeout period.\n\nAdded additional logging time-out periods",
+  "releaseNotes": "Version 1.2.2 by Kurt Sanders\n\n1. Bug Fix for logging timeout period.\n\n2. Added additional logging time-out periods",
   "apps": [
     {
       "id": "bc4ae4ab-f0eb-4505-a677-21ce430b3823",
