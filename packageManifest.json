@@ -1,13 +1,13 @@
 {
   "packageName": "BWA Spa Manager",
   "author": "Kurt Sanders",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "minimumHEVersion": "2.3.6",
   "dateReleased": "2023-12-07",
   "documentationLink": "https://github.com/KurtSanders/HBBWASpaManager/blob/master/README.md",
   "communityLink": "https://community.hubitat.com/t/release-hb-bwa-spamanager/128842",
   "licenseFile": "",
-  "releaseNotes": "Version 1.2.3 by Kurt Sanders\n\n1. Bug fixes for initial App install",
+  "releaseNotes": "Version 1.2.4 by Kurt Sanders\n\n1. Bug Fix for veriying valid data array from BWA.\n\n2. Additonal fixes for logging",
   "apps": [
     {
       "id": "bc4ae4ab-f0eb-4505-a677-21ce430b3823",

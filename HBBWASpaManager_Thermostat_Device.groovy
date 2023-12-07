@@ -23,7 +23,8 @@
  *                              Moved hardcoded logging in driver to UI preferences and added expire timeout logic.
  *                              Added driver to HPM Public Install App
  *  1.2.2       2023-12-06      Log Enhancements
-*
+ *  1.2.4       2023-12-07      Bugfix Log displaying device name in logging functions
+ *
  */
 
 import groovy.transform.Field
@@ -33,7 +34,7 @@ import groovy.time.TimeCategory
 
 @Field static String THERMOSTAT_CHILD_DEVICE_NAME_PREFIX = "HB BWA SPA Thermostat"
 @Field static String PARENT_DEVICE_NAME = "HB BWA SPA Thermostat"
-@Field static final String VERSION = "1.2.2"
+@Field static final String VERSION = "1.2.4"
 @Field static final List THERMO_STAT_MODES = ["heat","off"]
 @Field static final List THERMO_STAT_OPERATING_STATE = ["heating", "idle", "pending heat"]
 @Field static final List THERMO_STAT_FAN_MODES = ["off", "circulate"]
@@ -246,18 +247,18 @@ void logsOff() {
 
 //Logging Functions
 void logErr(String msg) {
-	if (logLevelInfo.level>=1) log.error "${app.displayName}: ${msg}"
+	if (logLevelInfo.level>=1) log.error "${device.name}: ${msg}"
 }
 void logWarn(String msg) {
-	if (logLevelInfo.level>=2) log.warn "${app.name}: ${msg}"
+	if (logLevelInfo.level>=2) log.warn "${device.name}: ${msg}"
 }
 void logInfo(String msg) {
-	if (logLevelInfo.level>=3) log.info "${app.name}: ${msg}"
+	if (logLevelInfo.level>=3) log.info "${device.name}: ${msg}"
 }
 void logDebug(String msg) {
-	if (logLevelInfo.level>=4) log.debug "${app.name}: ${msg}"
+	if (logLevelInfo.level>=4) log.debug "${device.name}: ${msg}"
 }
 void logTrace(String msg) {
-	if (logLevelInfo.level>=5) log.trace "${app.name}: ${msg}"
+	if (logLevelInfo.level>=5) log.trace "${device.name}: ${msg}"
 }
 

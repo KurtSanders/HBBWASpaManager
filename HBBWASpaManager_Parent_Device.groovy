@@ -40,7 +40,9 @@
  *                              Added attribute attribute 'online', 'enum', ['Online','Offline'] to monitor spa network connectivity
  *                              Added attribute 'updated_at' to track the timestamp of the current Spa readings
  *  1.2.1       2023-12-05      Corrected Community WebbLink
- *  1.2.1       2023-12-05      Added additional logging tmeouts to be consistent with the app
+ *  1.2.2       2023-12-06      Added additional logging tmeouts to be consistent with the app
+ *  1.2.4       2023-12-07      Bug Fix for veriying valid data array from BWA.
+ *                              Additonal fixes for logging
  */
 
 import groovy.transform.Field
@@ -50,9 +52,9 @@ import groovy.time.TimeCategory
 
 @Field static String DEVICE_NAME_PREFIX = "HB BWA SPA"
 @Field static String PARENT_DEVICE_NAME = "HB BPA SPA Parent"
-@Field static final String VERSION = "1.2.2"
+@Field static final String VERSION = "1.2.3"
 @Field static final String COMM_LINK = "https://community.hubitat.com/t/release-hb-bwa-spamanager/128842"
-@Field static final List VALID_SPA_BYTE_ARRAY = [29, -1, -81]
+@Field static final List VALID_SPA_BYTE_ARRAY = [-1, -81]
 
 @Field static String THERMOSTAT_CHILD_DEVICE_NAME = "HB BWA SPA Thermostat"
 @Field static String SWITCH_CHILD_DEVICE_NAME = "HB BWA SPA Switch"
@@ -129,7 +131,7 @@ def installed() {
 }
 
 def updated() {
-	logDebug "updated..."
+	log.info "Preferences Updated..."
 	checkLogLevel()
 }
 
@@ -239,7 +241,7 @@ def parsePanelData(encodedData) {
     byte[] decoded = encodedData.decodeBase64()
 
     // Check for a valid SPA array prefix
-    if (decoded[0..2] != VALID_SPA_BYTE_ARRAY) {
+    if (decoded[1..2] != VALID_SPA_BYTE_ARRAY) {
         if (encodedData != null) {
             logWarn "BWA Cloud Spa Error: encodedData '${encodedData}' is NOT a valid SPA panel data.   Is the Spa Online?"
         } else {
@@ -619,18 +621,20 @@ preferences {
 
 //Call this function from within updated() and configure() with no parameters: checkLogLevel()
 void checkLogLevel(Map levelInfo = [level:null, time:null]) {
-	unschedule(logsOff)
-	//Set Defaults
-	if (settings.logLevel == null) device.updateSetting("logLevel",[value:LOG_DEFAULT_LEVEL, type:"enum"])
-	if (settings.logLevelTime == null) device.updateSetting("logLevelTime",[value:"0", type:"enum"])
-	//Schedule turn off and log as needed
-	if (levelInfo.level == null) levelInfo = getLogLevelInfo()
-	String logMsg = "Logging Level is: ${LOG_LEVELS[levelInfo.level]} (${levelInfo.level})"
-	if (levelInfo.level >= 1 && levelInfo.time > 0) {
-		logMsg += " for ${LOG_TIMES[levelInfo.time]}"
-		runIn(60*levelInfo.time, logsOff)
-	}
-	logInfo(logMsg)
+    unschedule(logsOff)
+    //Set Defaults
+    if (settings.logLevel == null) device.updateSetting("logLevel",[value:LOG_DEFAULT_LEVEL, type:"enum"])
+    logDebug "==> settings.logLevel= ${settings.logLevel}"
+    if (settings.logLevelTime == null) device.updateSetting("logLevelTime",[value:"0", type:"enum"])
+    logDebug "==> settings.logLevelTime= ${settings.logLevelTime}"
+    //Schedule turn off and log as needed
+    if (levelInfo.level == null) levelInfo = getLogLevelInfo()
+    String logMsg = "Logging Level is: ${LOG_LEVELS[levelInfo.level]} (${levelInfo.level})"
+    if (levelInfo.level >= 1 && levelInfo.time > 0) {
+        logMsg += " for ${LOG_TIMES[levelInfo.time]}"
+        runIn(60*levelInfo.time, logsOff)
+    }
+    logInfo(logMsg)
 }
 
 //Function for optional command
@@ -657,17 +661,17 @@ void logsOff() {
 
 //Logging Functions
 void logErr(String msg) {
-	if (logLevelInfo.level>=1) log.error "${app.displayName}: ${msg}"
+	if (logLevelInfo.level>=1) log.error "${device.name}: ${msg}"
 }
 void logWarn(String msg) {
-	if (logLevelInfo.level>=2) log.warn "${app.name}: ${msg}"
+	if (logLevelInfo.level>=2) log.warn "${device.name}: ${msg}"
 }
 void logInfo(String msg) {
-	if (logLevelInfo.level>=3) log.info "${app.name}: ${msg}"
+	if (logLevelInfo.level>=3) log.info "${device.name}: ${msg}"
 }
 void logDebug(String msg) {
-	if (logLevelInfo.level>=4) log.debug "${app.name}: ${msg}"
+	if (logLevelInfo.level>=4) log.debug "${device.name}: ${msg}"
 }
 void logTrace(String msg) {
-	if (logLevelInfo.level>=5) log.trace "${app.name}: ${msg}"
+	if (logLevelInfo.level>=5) log.trace "${device.name}: ${msg}"
 }
