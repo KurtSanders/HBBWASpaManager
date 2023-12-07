@@ -30,6 +30,7 @@
  *                              Added several error traps for unexpected conditions, like spa offline, BWA Cloud errors, etc.
  *  1.2.1       2023-12-05      Added missing checkLogLevel() for logging timeout.
  *  1.2.2       2023-12-06      Bug Fix for logging timeout periods and levels.
+ *  1.2.3       2023-12-07      Bug Fixes for Initial App Install.
  */
 
 import groovy.transform.Field
@@ -38,7 +39,7 @@ import groovyx.net.http.HttpResponseException
 @Field static String AUTHOR_NAME               = "Kurt Sanders"
 @Field static String NAMESPACE                 = "kurtsanders"
 @Field static String PARENT_DEVICE_NAME        = "BWA Spa Manager"
-@Field static final String VERSION             = "1.2.2"
+@Field static final String VERSION             = "1.2.3"
 @Field static final String COMM_LINK           = "https://community.hubitat.com/t/release-hb-bwa-spamanager/128842"
 @Field static final String GITHUB_LINK         = "https://github.com/KurtSanders/HBBWASpaManager"
 @Field static final String GITHUB_IMAGES_LINK  = "https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/master/images"
@@ -67,17 +68,25 @@ preferences {
 @Field static String PARENT_DEVICE_NAME_PREFIX = "HB BPA SPA Parent"
 
 def confirmPage() {
-    def devConfig = getDeviceConfiguration(state.spa["deviceId"])
-    def spaConfiguration = ParseDeviceConfigurationData(devConfig)
-    logDebug "confirmPage() spaConfiguration.dump(): ${spaConfiguration}"
-
-    dynamicPage(name: "confirmPage", uninstall: true, install: true) {
-        section (sectionHeader("Name your BWA Spa Device")) {
-            input(name: "spaParentDeviceName", type: "text", title: fmtTitle("Spa Parent Device Name:"), required: false, defaultValue: state.spa["deviceDisplayName"], description: fmtDesc(state.spa["deviceDisplayName"]))
+    if (state.token == null) {
+        log.warn ("BWA User notAuthenticated() state.token == null, You must login to BWA Cloud on the Main Page of the App before proceeding")
+        dynamicPage(name: "confirmPage", uninstall: false, install: false) {
+            section(sectionHeader("Not Logged In!")) {
+                paragraph (getFormat("text-red","Please must login. Check your credentials and try again to login to BWA Cloud."))
+            }
         }
-        if (spaConfiguration != null) {
-            state.spaConfiguration = spaConfiguration
-            def deviceCount = spaConfiguration.count { key, value -> value == true }
+    } else {
+        def devConfig = getDeviceConfiguration(state.spa["deviceId"])
+        def spaConfiguration = ParseDeviceConfigurationData(devConfig)
+        logDebug "confirmPage() spaConfiguration.dump(): ${spaConfiguration}"
+
+        dynamicPage(name: "confirmPage", uninstall: true, install: true) {
+            section (sectionHeader("Name your BWA Spa Device")) {
+                input(name: "spaParentDeviceName", type: "text", title: fmtTitle("Spa Parent Device Name:"), required: false, defaultValue: state.spa["deviceDisplayName"], description: fmtDesc(state.spa["deviceDisplayName"]))
+            }
+            if (spaConfiguration != null) {
+                state.spaConfiguration = spaConfiguration
+                def deviceCount = spaConfiguration.count { key, value -> value == true }
                 section (sectionHeader("Found the following ${deviceCount} devices attached to your hot tub")) {
                     def index = 1
                     def spaManifest = "<ul>"
@@ -88,10 +97,11 @@ def confirmPage() {
                     }
                     paragraph("${spaManifest}</ul>")
                 }
-        } else {
-            section(sectionHeader("Spa Not Responding")) {
-                paragraph getFormat("text-red","${state.HttpResponseExceptionReponse}")
-                paragraph "The Spa is not responding to BWA cloud, please check to see if the spa is online"
+            } else {
+                section(sectionHeader("Spa Not Responding")) {
+                    paragraph getFormat("text-red","${state.HttpResponseExceptionReponse}")
+                    paragraph "The Spa is not responding to BWA cloud, please check to see if the spa is online"
+                }
             }
         }
     }
@@ -103,41 +113,41 @@ def mainPage() {
         getSpa()
     }
 
-    dynamicPage(name: "mainPage", nextPage: "confirmPage", uninstall: false, install: false) {
+    dynamicPage(name: "mainPage", nextPage: "confirmPage", uninstall: true, install: false) {
+        //Help Link
+        section () {
+            input name: "helpInfo", type: "hidden", title: fmtHelpInfo("Hubitat Community <u>WebLink</u> to ${app.name}")
+            paragraph ("")
+        }
+        section(sectionHeader("BWA Authentication")) {
+            href("authPage", title: fmtTitle("Cloud Authorization"), description: fmtDesc("${state.credentialStatus ? state.credentialStatus+"\n" : ""}Click to enter BWA credentials"))
+        }
         if (state.spa) {
-            //Help Link
-            section () {
-                input name: "helpInfo", type: "hidden", title: fmtHelpInfo("Hubitat Community <u>WebLink</u> to ${app.name}")
-                paragraph ("")
-            }
             section(sectionHeader("Found the following Spa (you can change the device name on the next page:")) {
                 paragraph("${state.spa["deviceDisplayName"]} ${getImage("checkMarkGreen")}")
-            }
-            section(sectionHeader("BWA Authentication")) {
-                href("authPage", title: fmtTitle("Cloud Authorization"), description: fmtDesc("${state.credentialStatus ? state.credentialStatus+"\n" : ""}Click to enter BWA credentials"))
             }
             section(sectionHeader("How frequently do you want to poll the BWA cloud for changes? (Use a lower number if you care about trying to capture and respond to \"change\" events as they happen)")) {
                 input(name: "pollingInterval", title: fmtTitle("Polling Interval (in Minutes)"), type: "enum", required: true, multiple: false, defaultValue: 5, options: ["1", "5", "10", "15", "30"])
                 input name: "pollingModes", type: "mode", title: fmtTitle("Poll BWA cloud only when in one of these modes"),required: true, defaultValue: location.mode, multiple: true, submitOnChange: false            }
-        }
-        section(sectionHeader("BWA Logging Options")) {
-            //Logging Options
-            input name: "logLevel", type: "enum", title: fmtTitle("Logging Level"),
-                description: fmtDesc("Logs selected level and above"), defaultValue: 3, options: LOG_LEVELS
-            input name: "logLevelTime", type: "enum", title: fmtTitle("Logging Level Time"),
-                description: fmtDesc("Time to enable Debug/Trace logging"),defaultValue: 30, options: LOG_TIMES
-        }
-        section (sectionHeader("Name this instance of ${app.name}")) {
-            label name: "name", title: fmtTitle("Assign a name for this app"), required: false, defaultValue: app.name, description: fmtDesc(app.name), submitOnChange: true
+            section(sectionHeader("BWA Logging Options")) {
+                //Logging Options
+                input name: "logLevel", type: "enum", title: fmtTitle("Logging Level"),
+                    description: fmtDesc("Logs selected level and above"), defaultValue: 0, options: LOG_LEVELS
+                input name: "logLevelTime", type: "enum", title: fmtTitle("Logging Level Time"),
+                    description: fmtDesc("Time to enable Debug/Trace logging"),defaultValue: 0, options: LOG_TIMES
+            }
+            section (sectionHeader("Name this instance of ${app.name}")) {
+                label name: "name", title: fmtTitle("Assign a name for this app"), required: false, defaultValue: app.name, description: fmtDesc(app.name), submitOnChange: true
+            }
         }
     }
 }
 
 def authPage() {
-    dynamicPage(name: "authPage", nextPage: "authResultPage", uninstall: false, install: false) {
-        section("BWA Credentials") {
-            input("username", "username", title: fmtTitle("User ID"), description: fmtDesc("BWA User ID"), required: true)
-            input("password", "password", title: fmtTitle("Password"), description: fmtDesc("BWA Password"), required: true)
+    dynamicPage(name: "authPage", nextPage: "authResultPage", uninstall: true, install: false) {
+        section(sectionHeader("BWA Credentials")) {
+            input("username", "username", title: "User ID", description: "BWA User ID", required: true)
+            input("password", "password", title: "Password", description: "BWA Password", required: true)
         }
     }
 }
@@ -152,15 +162,15 @@ def authResultPage() {
     if (state.token == null) {
         logDebug ("authResultPage() state.token == null")
         dynamicPage(name: "authResultPage", nextPage: "authPage", uninstall: false, install: false) {
-            section("${state.loginResponse}") {
-                paragraph ("Please check your credentials and try again.")
+            section(sectionHeader("${state.loginResponse}")) {
+                paragraph (getFormat("text-red","Please check your credentials and try again."))
             }
         }
     } else {
         logDebug ("authResultPage() state.token != null")
         dynamicPage(name: "authResultPage", nextPage: "mainPage", uninstall: false, install: false) {
-            section("${state.loginResponse}") {
-                paragraph ("Please click next to continue setting up your spa.")
+            section(sectionHeader("${state.loginResponse}")) {
+                paragraph ("${getImage('checkMarkGreen')}${getFormat('text-green','Please click next to continue setting up your spa.')}")
             }
         }
     }
@@ -283,13 +293,11 @@ def doCallout(calloutMethod, urlPath, calloutBody, contentType, queryParams) {
         }
     } catch (groovyx.net.http.HttpResponseException e) {
         state.HttpResponseExceptionReponse = "${e.response.status} ${e.response.statusLine.reasonPhrase}"
-        logWarn state.HttpResponseExceptionReponse
-        return e.response.success
+        return e.response
     } catch (e) {
         logWarn "Something went wrong: ${e}"
         return [error: e.message]
     }
-
     logDebug "==> Post result= ${result.data}"
     return result
 }
