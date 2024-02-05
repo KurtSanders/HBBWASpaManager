@@ -60,6 +60,12 @@ public String getCurrentTimeZone(){
     return tz.getID();
 }
 
+String nowFormatted(dtFormat=null) {
+    dtFormat = dtFormat?dtFormat:'yyyy-MMM-dd h:mm:ss a'
+    if(location.timeZone) return new Date().format(dtFormat, location.timeZone)
+    else                  return new Date().format(dtFormat)
+}
+
 String fmtTitle(String str) {
     return "<strong>${str}</strong>"
 }
