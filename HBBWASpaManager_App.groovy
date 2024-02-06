@@ -52,8 +52,13 @@ preferences {
 }
 
 def mainPage() {
-    // Get spa if we don't have it already, set the install flag
+    // Get spa data if we don't have it already, set the install flag
     dynamicPage(name: "mainPage", uninstall: true, nextPage: "confirmPage", install: checkSpaState() ) {
+        // Set Logging On Initially
+        if (state?.logLevel==null || state.logLevelTime == null) {
+            setLogLevel("Info", "30 Minutes")
+            logInfo "Setting initial application level logging to 'Info' for 30 Minutes..."
+        }
         //Help Link
         section () {
             input name: "helpInfo", type: "hidden", title: fmtHelpInfo("Hubitat Community <u>WebLink</u> to ${app.name}")
@@ -65,23 +70,22 @@ def mainPage() {
         if (state.spa) {
             section(sectionHeader("${state?.spa["deviceDisplayName"]} (BWA Username: ${state?.spa.username}) ${getImage("checkMarkGreen")}")) {
                 href("confirmPage", title: fmtTitle("View your spa's mechanical configuration and name parent spa control device."), description: fmtDesc(spaManifest() + "\n" + "Click to generate a new spa mechanical configuration (not needed if correct)"))
-//                input (name: "RefreshSpaData", type: "button", title: "Refresh Spa Data")
             }
+
+            // BWA Cloud Polling Options
             section(sectionHeader("How frequently do you want to poll the BWA cloud for changes? (Use a lower number if you care about trying to capture and respond to \"change\" events as they happen)")) {
                 input(name: "pollingInterval", title: fmtTitle("Polling Interval (in Minutes)"), type: "enum", required: true, multiple: false, defaultValue: 5, options: ["1", "5", "10", "15", "30"])
                 input name: "pollingModes", type: "mode", title: fmtTitle("Poll BWA cloud only when in one of these modes"),required: true, offerAll: true, defaultValue: location.mode, multiple: true, submitOnChange: false            }
+
+            //Logging Options
             section(sectionHeader("BWA Logging Options")) {
-                if (logLevel == null && logLevelTime == null) {
-                    log.info "${app.name}: Setting Innital logLevel and LogLevelTime defaults"
-                    app.updateSetting(logLevel, [type: "enum", value: [5]])
-                    app.updateSetting(logLevelTime, [type: "enum", value: [30]])
-                }
-                //Logging Options
                 input name: "logLevel", type: "enum", title: fmtTitle("Logging Level"),
                     description: fmtDesc("Logs selected level and above"), defaultValue: 3, options: LOG_LEVELS
                 input name: "logLevelTime", type: "enum", title: fmtTitle("Logging Level Time"),
-                    description: fmtDesc("Time to enable Debug/Trace logging"),defaultValue: 10, options: LOG_TIMES
+                    description: fmtDesc("Time to enable Debug/Trace logging"), defaultValue: 30, options: LOG_TIMES
             }
+
+            // Custom App Name
             section (sectionHeader("Name this instance of ${app.name}")) {
                 String defaultName = "${app.name} - ${state?.spa.username}"
                 logDebug "defaultName= ${defaultName}"
@@ -170,7 +174,7 @@ def authResultPage() {
         logDebug ("authResultPage() state.token == null")
         dynamicPage(name: "authResultPage", nextPage: "authPage", uninstall: false, install: false) {
             section(sectionHeader("${state.loginResponse}")) {
-                paragraph (getFormat("text-red","Please check your BWA login credentials and try again."))
+                paragraph (getFormat("text-red",getImage("button-red") + "→ Error Logging In '${settings.username}'.  Please re-check your BWA login credentials and try again."))
             }
         }
     } else {
@@ -338,7 +342,7 @@ def doCallout(calloutMethod, urlPath, calloutBody, contentType, queryParams) {
                 params.headers["x-http-method-override"] = "PATCH"
                 // NOTE: break is purposefully missing so that it falls into the next case and "POST"s
             case "POST":
-                logTrace "httpPost(${params.dump()})"
+                logTrace "httpPost(params → ${params})"
             	httpPost(params) { resp ->
                 	result = resp
                     logDebug "doCallout(httpPost) result.status = ${result?.status}"
@@ -354,7 +358,7 @@ def doCallout(calloutMethod, urlPath, calloutBody, contentType, queryParams) {
         logDebug "Http Error (${e.response.status}): ${e.response.statusLine.reasonPhrase}"
         state.HttpResponseExceptionReponse = "http rc=${e.response.status}, ${e.response.statusLine.reasonPhrase}"
         updateLabel("Offline")
-        return null
+        return [status: "${e.response.status}", data: "${e.response.statusLine.reasonPhrase}"]
     } catch (e) {
         logWarn "Something went wrong: ${e}"
         updateLabel("Offline")
