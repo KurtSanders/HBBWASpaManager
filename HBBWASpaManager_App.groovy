@@ -55,7 +55,7 @@ def mainPage() {
     // Get spa data if we don't have it already, set the install flag
     dynamicPage(name: "mainPage", uninstall: true, nextPage: "confirmPage", install: checkSpaState() ) {
         // Set all Polling Modes On Initially
-        if (setting?.pollingModes == null) {
+        if (settings?.pollingModes == null) {
                 app.updateSetting("pollingModes",[value: location.getModes().sort(), type:"mode"])
         }
         // Set Logging On Initially
