@@ -2,7 +2,7 @@
  *  Hubitat BWA Spa Manager
  *  -> Parent Device Driver
  *
- *  Copyright 2023 Kurt Sannders
+ *  Copyright 2023/2024 Kurt Sannders
  *   based on work Copyright 2020 Richard Powell that he did for Hubitat
  *
  *  Copyright 2020 Richard Powell
@@ -17,87 +17,49 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
- *  CHANGE HISTORY
- *  VERSION     DATE            NOTES
- *  0.9.0       2020-01-30      Initial release with basic access and control of spas
- *  1.0.0       2020-01-31      Updated UI and icons as well as switch functionality that can be controlled with
- *                              Alexa. Added preference for a "Default Temperature When Turned On"
- *  1.1.0       2020-06-03      Additional functionality for aux, temperature range, and heat modes
- *  1.1.1       2020-07-26      Adjusted icons to better match functionality for aux, temperature range and heat modes
- *                              and removed duplicate tile declaration
- *  1.1.2b      2020-09-17      Modified / validated to work on Hubitat
- *  1.1.3       2020-10-11      Major rewrite of this driver to work with Hubitat's Parent-Child device driver model
- *  1.1.4       2020-10-11      Support the remaining device types except Blower, more code clean-up
- *  1.2.0       2023-11-11      V1.2.0 code stream maintained by Kurt Sanders
- *                              Moved hardcoded logging in driver to UI preferences and added expire timeout logic.
- *                              Added 'Switch Capability' in device parent for:
- *                                  Value: On (TempRange: high, ReadyMode: Ready)
- *                                  Value: Off (TempRange: low, ReadyMode: Rest)
- *                              Added capability "Actuator" and attribute "ReadyMode", "enum", ["Ready", "Rest"] with command "setReadyMode"
- *                              Added attribute "TempRange", "enum", ["low", "high"] and command "setTempRange"
- *                              Move hardcoded logging in app and drivers to app and device UI input fields for easier end user maintenance.
- *                              Added app and drivers to HPM Public Install App
- *                              Added attribute attribute 'online', 'enum', ['Online','Offline'] to monitor spa network connectivity
- *                              Added attribute 'updated_at' to track the timestamp of the current Spa readings
- *  1.2.1       2023-12-05      Corrected Community WebbLink
- *  1.2.2       2023-12-06      Added additional logging tmeouts to be consistent with the app
- *  1.2.4       2023-12-07      Bug Fix for veriying valid data array from BWA.
- *                              Additonal fixes for logging
  */
-
-import groovy.transform.Field
-import groovy.time.TimeCategory
-
-@Field static String NAMESPACE = "kurtsanders"
+#include kurtsanders.SanderSoft-Library
+#include kurtsanders.BWA-Library
 
 @Field static String DEVICE_NAME_PREFIX = "HB BWA SPA"
 @Field static String PARENT_DEVICE_NAME = "HB BPA SPA Parent"
-@Field static final String VERSION = "1.2.3"
-@Field static final String COMM_LINK = "https://community.hubitat.com/t/release-hb-bwa-spamanager/128842"
-@Field static final List VALID_SPA_BYTE_ARRAY = [-1, -81]
+@Field static final String VERSION = "1.3.0"
 
+@Field static final List VALID_SPA_BYTE_ARRAY = [-1, -81]
 @Field static String THERMOSTAT_CHILD_DEVICE_NAME = "HB BWA SPA Thermostat"
 @Field static String SWITCH_CHILD_DEVICE_NAME = "HB BWA SPA Switch"
-@Field static String UNKNOWN = "Unknown"
+@Field static String UNKNOWN = "unknown"
+@Field static final List READYMODES = ["Ready", "Rest"]
+@Field static final List TEMPRANGES = ["low", "high"]
 
 metadata {
-    definition (name: PARENT_DEVICE_NAME, namespace: NAMESPACE, author: "Kurt Sanders") {
-        capability "Refresh"
-        capability "Configuration"
+    definition (name: PARENT_DEVICE_NAME, namespace: NAMESPACE, author: AUTHOR_NAME) {
         capability "Actuator"
-        capability "Switch"
+        capability "Configuration"
+        capability "Refresh"
         capability "Sensor"
+        capability "Switch"
+        capability "TemperatureMeasurement"
 
-
-        /* This is a list of attributes sent to us right after we successfully login
-         * to Balboa and pull details about Spas linked to the user's account.
-         *
-         * Hubitat requires attributes to be defined in order for sendEvent(...) to
-         * be able to update that attribute.
-         */
-        attribute "create_user_id", "string"
-        attribute "deviceId", "string" // renamed from "device_id"
-        attribute "update_user_id", "string"
-        attribute "updated_at", "string"
-        attribute "__v", "string"
-        attribute "active", "string"
-        attribute "created_at", "string"
-        attribute "_id", "string"
-
-        // Additional attributes
-        attribute "spaStatus", "string"
-        attribute "ReadyMode", "enum", ["Ready", "Rest"]
-        attribute "TempRange", "enum", ["low", "high"]
+        attribute "deviceId", "string"
+        attribute "blowerState", "enum", ["off","low","medium","high"]
+        attribute "blowerPump", "enum", ["true","false"]
+        attribute "heatingSetpoint", "number"
         attribute "online", "enum", ["Online","Offline"]
-        attribute "wifiState", "enum", ["WiFi OK","WiFi Spa Not Communicating","WiFi Startup","WiFi Prime","WiFi Hold","WiFi Panel","WiFi Unnknown"]
+        attribute "pollingInterval", "string"
+        attribute "ReadyMode", "enum", READYMODES
+        attribute "spaStatus", "string"
+        attribute "spaTime", "string"
+        attribute "is24HourTime", "enum", ["true","false"]
         attribute "temperature", "number"
-        attribute "ThermostatHeatingSetpoint", "number"
-        attribute "ThermostatSetpoint", "number"
-        attribute "TemperatureMeasurement", "number"
-        attribute "ThermostatMode", "number"
-        attribute "ThermostatOperatingState", "number"
+        attribute "TempRange", "enum", TEMPRANGES
+        attribute "thermostatOperatingState", "string"
+        attribute "thermostatSetpoint", "number"
+        attribute "updated_at", "string"
+        attribute "wifiState", "enum", ["WiFi OK","WiFi Spa Not Communicating","WiFi Startup","WiFi Prime","WiFi Hold","WiFi Panel","WiFi Unnknown"]
 
         command "setReadyMode"
+        command "setSpaToLocalTime"
         command "setTempRange"
     }
 }
@@ -131,7 +93,7 @@ def installed() {
 }
 
 def updated() {
-	log.info "Preferences Updated..."
+	logInfo "Preferences Updated..."
 	checkLogLevel()
 }
 
@@ -151,6 +113,12 @@ def off() {
     if (device.currentValue("TempRange") == "high") {
         setTempRange()
     }
+}
+
+void setSpaToLocalTime() {
+    def timeData = nowFormatted("HH:mm")
+    logDebug "setSpaToLocalTime(): SystemLocalTime = ${timeData}"
+    sendCommand("SystemTime", timeData)
 }
 
 void setReadyMode() {
@@ -174,12 +142,23 @@ void setTempRange() {
 }
 
 def sendCommand(action, data) {
+/*  sendCommand parameters and example values
+    SetTemp / 69
+    TempUnits / C
+    TempUnits / F
+    TimeFormat / 12
+    TimeFormat / 24
+    SystemTime / 01:49
+    Filters / <base64 string of bytes dictating the filter cycle>
+    Request / <panel request, such as list filter cycles??>
+*/
     parent.sendCommand(device.currentValue("deviceId"), action, data)
     runIn(2, refresh)
 }
 
 def parseDeviceData(Map results) {
     results.each {name, value ->
+        logDebug ("name: ${name}, value ${value}")
         sendEvent(name: name, value: value, displayed: true)
     }
 }
@@ -214,11 +193,10 @@ def createChildDevices(spaConfiguration) {
         }
     }
 
-    // Blower
-    if (spaConfiguration["Blower"] == true) {
-        // TODO: Support Blower properly. It's not a "Switch" device type.
-        //fetchChild(true, ???, "Blower", BUTTON_MAP.Blower)
-    }
+    // Blower Pump
+    // TODO: Support Blower properly. It's not a "Switch" device type.
+    // fetchChild(true, ???, "Blower", BUTTON_MAP.Blower)
+    sendEvent(name:"blowerPump",value: spaConfiguration["Blower"]?"true":"false" )
 
     // Aux
     spaConfiguration.each { k, v ->
@@ -235,8 +213,8 @@ def createChildDevices(spaConfiguration) {
 }
 
 def parsePanelData(encodedData) {
-    logDebug "==> encodedData= ${encodedData}"
-    logDebug "==> encodedData.decodeBase64()= ${encodedData.decodeBase64()}"
+    logTrace "encodedData= ${encodedData}"
+    if (encodedData==null) return
     def now = new Date().format('EEE MMM d, h:mm:ss a',location.timeZone)
     byte[] decoded = encodedData.decodeBase64()
 
@@ -246,25 +224,29 @@ def parsePanelData(encodedData) {
             logWarn "BWA Cloud Spa Error: encodedData '${encodedData}' is NOT a valid SPA panel data.   Is the Spa Online?"
         } else {
             logWarn "BWA Cloud Spa Error: SPA panel data was (null).  Is the Spa Online?"
-            encodedData = "Spa Cloud was null"
+            encodedData = "Spa BWA cloud spa data was null"
         }
         sendEvent(name: "online", value: "Offline")
         sendEvent(name: "spaStatus", value: UNKNOWN)
-        sendEvent(name: "updated_at", value: "Updated at: ${now} \nError: ${encodedData} ")
+        sendEvent(name: "updated_at", value: "Error: ${encodedData} at: ${now}")
         // Send events to Thermostat child device
         def thermostatChildDevice = fetchChild(false, "Thermostat", "Thermostat")
         if (thermostatChildDevice != null) {
             thermostatChildDevice.sendEvents([
                 [name: "temperature", value: -1 ],
-                [name: "thermostatMode", value: "off"],
+                [name: "thermostatMode", value: "heat"],
                 [name: "thermostatOperatingState", value: "idle"]
             ])
         }
+        // Send events to Switch child devices
+        def switchDevices = getChildDevices()
+        switchDevices.each {
+            if (it.typeName == "HB BWA SPA Switch") {
+                it.sendEvent(name: "speed", value: UNKNOWN)
+            }
+        }
         return false
     }
-    def is24HourTime = (decoded[13] & 2) != 0 ? true : false
-    def currentTimeHour = decoded[7]
-    def currentTimeMinute = decoded[8]
 
     def temperatureScale = (decoded[13] & 1) == 0 ? "F" : "C"
     def actualTemperature = decoded[6]
@@ -296,7 +278,8 @@ def parsePanelData(encodedData) {
             [name: "thermostatSetpoint", value: actualTemperature, unit: temperatureScale]
         ])
         thermostatChildDevice.sendEvents([
-            [name: "thermostatMode", value: isHeating ? "heat" : "off"],
+//            [name: "thermostatMode", value: isHeating ? "heat" : "off"],
+            [name: "thermostatMode", value: "heat"],
             [name: "thermostatOperatingState", value: isHeating ? "heating" : "idle"],
         ])
     }
@@ -330,7 +313,7 @@ def parsePanelData(encodedData) {
             accessibilityType = "All"
     }
 
-    // Pumps
+    // Spa Pumps
     def pumpState = []
     pumpState[0] = null
     def pump1ChildDevice = fetchChild(false, "Switch", "Pump 1")
@@ -432,6 +415,12 @@ def parsePanelData(encodedData) {
         default:
             blowerState = "off"
     }
+    if (device.currentValue("blowerPump")) {
+        sendEvent(name: "blowerState", value: blowerState)
+    } else {
+        logDebug "blowerPump currentValue is ${device.currentValue("blowerPump")}, blowerState will not be set/updated"
+    }
+
 
     // Lights
     def lightState = []
@@ -508,33 +497,13 @@ def parsePanelData(encodedData) {
         targetTemperature /= 2.0F
     }
 
-    logDebug ("Actual Temperature: ${actualTemperature}\n"
-              + "Current Time Hour: ${currentTimeHour}\n"
-              + "Current Time Minute: ${currentTimeMinute}\n"
-              + "Is 24-Hour Time: ${is24HourTime}\n"
-              + "Temperature Scale: ${temperatureScale}\n"
-              + "Target Temperature: ${targetTemperature}\n"
-              + "Filter Mode: ${filterMode}\n"
-              + "Accessibility Type: ${accessibilityType}\n"
-              + "Heating Mode: ${heatingMode}\n"
-              + "lightState[1]: ${lightState[1]}\n"
-              + "lightState[2]: ${lightState[2]}\n"
-              + "Heat Mode: ${heatMode}\n"
-              + "Is Heating: ${isHeating}\n"
-              + "pumpState[1]: ${pumpState[1]}\n"
-              + "pumpState[2]: ${pumpState[2]}\n"
-              + "pumpState[3]: ${pumpState[3]}\n"
-              + "pumpState[4]: ${pumpState[4]}\n"
-              + "pumpState[5]: ${pumpState[5]}\n"
-              + "pumpState[6]: ${pumpState[6]}\n"
-              + "blowerState: ${blowerState}\n"
-              + "misterState: ${misterState}\n"
-              + "auxState[1]: ${auxState[1]}\n"
-              + "auxState[2]: ${auxState[2]}\n"
-              + "pumpStateStatus: ${pumpStateStatus}\n"
-              + "wifiState: ${wifiState}\n"
-             )
+    // Spa Time
+    String currentTimeHour = decoded[7].toString().padLeft(2,"0")
+    String currentTimeMinute = decoded[8].toString().padLeft(2,"0")
+    String is24HourTime = (decoded[13] & 2) != 0 ? "true" : "false"
+    String spaTime = Date.parse("HHmm", "${currentTimeHour}${currentTimeMinute}").format((is24HourTime.toBoolean())?"HH:mm":"h:mm a")
 
+    // Create events for the parent spa device
     sendEvent(name: "spaStatus",                 value: "${heatMode} ${isHeating ? "heating to ${targetTemperature}°${temperatureScale}" : "not heating"}")
     sendEvent(name: "ReadyMode",                 value: "${heatMode}")
     sendEvent(name: "TempRange",                 value: "${heatingMode}")
@@ -544,14 +513,42 @@ def parsePanelData(encodedData) {
     sendEvent(name: "temperature",               value: actualTemperature, unit: temperatureScale)
     sendEvent(name: "heatingSetpoint",           value: targetTemperature, unit: temperatureScale)
     sendEvent(name: "thermostatSetpoint",        value: actualTemperature, unit: temperatureScale)
-    sendEvent(name: "thermostatMode",            value: isHeating ? "heat" : "off")
     sendEvent(name: "thermostatOperatingState",  value: isHeating ? "heating" : "idle")
+    sendEvent(name: "spaTime",  value: "${spaTime}" )
+    sendEvent(name: "is24HourTime",  value: "${is24HourTime}" )
 
     if (device.currentValue("ReadyMode") == "Ready" && device.currentValue("TempRange") == "high") {
         sendEvent(name: "switch", value: "on")
     } else {
         sendEvent(name: "switch", value: "off")
     }
+
+    logTrace ("<br><ol><li>Actual Temperature   : ${actualTemperature}"
+              + "<li>Current Time Hour          : ${currentTimeHour}"
+              + "<li>Current Time Minute        : ${currentTimeMinute}"
+              + "<li>Is 24-Hour Time            : ${is24HourTime}"
+              + "<li>Temperature Scale          : ${temperatureScale}"
+              + "<li>Target Temperature         : ${targetTemperature}"
+              + "<li>Filter Mode                : ${filterMode}"
+              + "<li>Accessibility Type         : ${accessibilityType}"
+              + "<li>Heating Mode               : ${heatingMode}"
+              + "<li>lightState[1]              : ${lightState[1]}"
+              + "<li>lightState[2]              : ${lightState[2]}"
+              + "<li>Heat Mode                  : ${heatMode}"
+              + "<li>Is Heating                 : ${isHeating}"
+              + "<li>pumpState[1]               : ${pumpState[1]}"
+              + "<li>pumpState[2]               : ${pumpState[2]}"
+              + "<li>pumpState[3]               : ${pumpState[3]}"
+              + "<li>pumpState[4]               : ${pumpState[4]}"
+              + "<li>pumpState[5]               : ${pumpState[5]}"
+              + "<li>pumpState[6]               : ${pumpState[6]}"
+              + "<li>blowerState                : ${blowerState}"
+              + "<li>misterState                : ${misterState}"
+              + "<li>auxState[1]                : ${auxState[1]}"
+              + "<li>auxState[2]                : ${auxState[2]}"
+              + "<li>pumpStateStatus            : ${pumpStateStatus}"
+              + "<li>wifiState                  : ${wifiState}</ol>"
+             )
     return true
 }
 
@@ -580,35 +577,6 @@ void refresh() {
     parent.pollChildren(override=true)
 }
 
-/*******************************************************************
- *** Preference Helpers ***
-/*******************************************************************/
-
-String fmtTitle(String str) {
-	return "<strong>${str}</strong>"
-}
-String fmtDesc(String str) {
-	return "<div style='font-size: 85%; font-style: italic; padding: 1px 0px 4px 2px;'>${str}</div>"
-}
-String fmtHelpInfo(String str) {
-	String info = "${PARENT_DEVICE_NAME} v${VERSION}"
-	String prefLink = "<a href='${COMM_LINK}' target='_blank'>${str}<br><div style='font-size: 70%;'>${info}</div></a>"
-	String topStyle = "style='font-size: 18px; padding: 1px 12px; border: 2px solid Crimson; border-radius: 6px;'" //SlateGray
-	String topLink = "<a ${topStyle} href='${COMM_LINK}' target='_blank'>${str}<br><div style='font-size: 14px;'>${info}</div></a>"
-
-	return "<div style='font-size: 160%; font-style: bold; padding: 2px 0px; text-align: center;'>${prefLink}</div>" +
-		"<div style='text-align: center; position: absolute; top: 46px; right: 60px; padding: 0px;'><ul class='nav'><li>${topLink}</ul></li></div>"
-}
-
-/*******************************************************************
- ***** Logging Functions
-********************A************************************************/
-//Logging Level Options
-@Field static final Map LOG_LEVELS = [0:"Off", 1:"Error", 2:"Warn", 3:"Info", 4:"Debug", 5:"Trace"]
-@Field static final Map LOG_TIMES  = [0:"Indefinitely", 01:"01 Minute", 05:"05 Minutes", 15:"15 Minutes", 30:"30 Minutes", 60:"1 Hour", 120:"2 Hours", 180:"3 Hours", 360:"6 Hours", 720:"12 Hours", 1440:"24 Hours"]
-@Field static final String LOG_DEFAULT_LEVEL = 0
-
-//Additional Preferences
 preferences {
 	//Logging Options
 	input name: "logLevel", type: "enum", title: fmtTitle("Logging Level"),
@@ -617,61 +585,4 @@ preferences {
 		description: fmtDesc("Time to enable Debug/Trace logging"),defaultValue: 0, options: LOG_TIMES
 	//Help Link
 	input name: "helpInfo", type: "hidden", title: fmtHelpInfo("Community Link")
-}
-
-//Call this function from within updated() and configure() with no parameters: checkLogLevel()
-void checkLogLevel(Map levelInfo = [level:null, time:null]) {
-    unschedule(logsOff)
-    //Set Defaults
-    if (settings.logLevel == null) device.updateSetting("logLevel",[value:LOG_DEFAULT_LEVEL, type:"enum"])
-    logDebug "==> settings.logLevel= ${settings.logLevel}"
-    if (settings.logLevelTime == null) device.updateSetting("logLevelTime",[value:"0", type:"enum"])
-    logDebug "==> settings.logLevelTime= ${settings.logLevelTime}"
-    //Schedule turn off and log as needed
-    if (levelInfo.level == null) levelInfo = getLogLevelInfo()
-    String logMsg = "Logging Level is: ${LOG_LEVELS[levelInfo.level]} (${levelInfo.level})"
-    if (levelInfo.level >= 1 && levelInfo.time > 0) {
-        logMsg += " for ${LOG_TIMES[levelInfo.time]}"
-        runIn(60*levelInfo.time, logsOff)
-    }
-    logInfo(logMsg)
-}
-
-//Function for optional command
-void setLogLevel(String levelName, String timeName=null) {
-	Integer level = LOG_LEVELS.find{ levelName.equalsIgnoreCase(it.value) }.key
-	Integer time = LOG_TIMES.find{ timeName.equalsIgnoreCase(it.value) }.key
-	device.updateSetting("logLevel",[value:"${level}", type:"enum"])
-	checkLogLevel(level: level, time: time)
-}
-
-Map getLogLevelInfo() {
-	Integer level = settings.logLevel as Integer ?: 0
-	Integer time = settings.logLevelTime as Integer ?: 0
-	return [level: level, time: time]
-}
-
-//Current Support
-void logsOff() {
-	logWarn "Debug and Trace logging disabled..."
-	if (logLevelInfo.level >= 1) {
-		device.updateSetting("logLevel",[value:"0", type:"enum"])
-	}
-}
-
-//Logging Functions
-void logErr(String msg) {
-	if (logLevelInfo.level>=1) log.error "${device.name}: ${msg}"
-}
-void logWarn(String msg) {
-	if (logLevelInfo.level>=2) log.warn "${device.name}: ${msg}"
-}
-void logInfo(String msg) {
-	if (logLevelInfo.level>=3) log.info "${device.name}: ${msg}"
-}
-void logDebug(String msg) {
-	if (logLevelInfo.level>=4) log.debug "${device.name}: ${msg}"
-}
-void logTrace(String msg) {
-	if (logLevelInfo.level>=5) log.trace "${device.name}: ${msg}"
 }
