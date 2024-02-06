@@ -54,6 +54,10 @@ preferences {
 def mainPage() {
     // Get spa data if we don't have it already, set the install flag
     dynamicPage(name: "mainPage", uninstall: true, nextPage: "confirmPage", install: checkSpaState() ) {
+        // Set all Polling Modes On Initially
+        if (setting?.pollingModes == null) {
+                app.updateSetting("pollingModes",[value: location.getModes().sort(), type:"mode"])
+        }
         // Set Logging On Initially
         if (state?.logLevel==null || state.logLevelTime == null) {
             setLogLevel("Info", "30 Minutes")
@@ -75,7 +79,7 @@ def mainPage() {
             // BWA Cloud Polling Options
             section(sectionHeader("How frequently do you want to poll the BWA cloud for changes? (Use a lower number if you care about trying to capture and respond to \"change\" events as they happen)")) {
                 input(name: "pollingInterval", title: fmtTitle("Polling Interval (in Minutes)"), type: "enum", required: true, multiple: false, defaultValue: 5, options: ["1", "5", "10", "15", "30"])
-                input name: "pollingModes", type: "mode", title: fmtTitle("Poll BWA cloud only when in one of these modes"),required: true, offerAll: true, defaultValue: location.mode, multiple: true, submitOnChange: false            }
+                input name: "pollingModes", type: "mode", title: fmtTitle("Poll BWA cloud only when in these Hubitat modes.  Please unselect those location modes to save polling cycles when not needed."),required: true, offerAll: true, defaultValue: location.mode, multiple: true, submitOnChange: false            }
 
             //Logging Options
             section(sectionHeader("BWA Logging Options")) {
@@ -430,7 +434,7 @@ def initialize() {
     // set up polling only if we have child devices
     if(childDevices.size() > 0) {
         pollChildren()
-        logInfo "Setting BWA polling interval to ${pollingInterval} minute${pollingInterval != "1" ? 's' : ''}"
+        logInfo "Setting BWA polling interval to ${pollingInterval} minute${pollingInterval != "1" ? 's' : ''} in ${pollingModes.join(", ")} modes"
         "runEvery${pollingInterval}Minute${pollingInterval != "1" ? 's' : ''}"("pollChildren")
     } else unschedule(pollChildren)
     updateLabel('Online')
