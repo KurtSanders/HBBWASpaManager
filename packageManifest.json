@@ -20,7 +20,7 @@
       "id": "b438d8c9-c3bb-45b6-9dcd-a5f0fb931617",
       "name": "SanderSoft Bundle",
       "namespace": "kurtsanders",
-      "location": "https://github.com/KurtSanders/HubitatPackages/raw/master/resources/bundles/SannderSoftBundle.zip",
+      "location": "https://github.com/KurtSanders/HubitatPackages/raw/master/resources/bundles/SanderSoftBundle.zip",
       "required": true
     }
 
