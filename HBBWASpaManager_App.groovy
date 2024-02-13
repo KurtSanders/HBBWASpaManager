@@ -52,6 +52,8 @@ preferences {
 }
 
 void initilVariableDefaults() {
+    //    setLogLevel("Debug", "30 Minutes")
+
     // Set isPaused state to false for the first time
     if (state?.isPaused==null) atomicState.isPaused=false
     // Set all polling modes on initially
@@ -315,12 +317,12 @@ def cacheSpaData(spaData) {
     } else {
         logInfo ("Saving Spa data in the state cache (username: ${spaData.username}, app.id: ${app.id}, device_id: ${spaData.device?.device_id})")
         updateLabel("Online")
-        atomicState.spa = [:]
-        atomicState.spa["appId"] = app.id;
-        atomicState.spa["username"] = spaData?.username
-        atomicState.spa["deviceId"] = spaData.device?.device_id
-        atomicState.spa["deviceNetworkId"] = [app.id, spaData.device?.device_id].join('.')
-        atomicState.spa["deviceDisplayName"] = "Spa ${username}"
+        state.spa = [:]
+        state.spa["appId"] = app.id;
+        state.spa["username"] = spaData?.username
+        state.spa["deviceId"] = spaData.device?.device_id
+        state.spa["deviceNetworkId"] = [app.id, spaData.device?.device_id].join('.')
+        state.spa["deviceDisplayName"] = "Spa ${username}"
     }
     return spaData.device
 }
