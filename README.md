@@ -1,7 +1,7 @@
 # HB BWA SpaManager 
 <img src="https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/master/images/hot-tub.png" width="50"> (forked from [richardpowellus/HBBWASpaManager](https://github.com/richardpowellus/HBBWASpaManager)
 
-<img src="https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/master/images/HE dashboard-1.jpg">
+<img src="https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/master/images/HE%20dashboard-1.jpg">
 
 * Dashboard and Tiles shown above have been customized by [Tile Master by BPTWorld apps](https://community.hubitat.com/t/release-tile-master-display-multiple-devices-that-can-be-controlled-from-the-tile/23140)
 
@@ -10,10 +10,11 @@
 <img src="https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/master/images/Help-Logo.png" width="50">[Hubitat Community Support Thread](https://community.hubitat.com/t/release-hb-bwa-spamanager/128842)
 
 ### Integrate your spa to the Hubitat environment with the following features:
-1. View real-time temperature
-2. Set heatingSetPoint temperature
+1. View real-time spa temperature
+2. Set spa heatingSetPoint temperature
 2. Turn on/off lights, pumps, mister and aux devices
 3. Set & automate High/Low & Rest/Ready modes to reduce energy usage
+4. Set spa's internal clock to hubitat local time
 4. Control spa using Hubitat's Rules/WebCore
 
 #### Requirements
