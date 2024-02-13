@@ -111,7 +111,7 @@ def mainPage() {
             section (sectionHeader("Name this instance of ${app.name}")) {
                 String defaultName = "${app.name} - ${state?.spa.username}"
                 logDebug "defaultName= ${defaultName}"
-                if (atomicState.displayName) {
+                if (state.displayName) {
                     defaultName = state.displayName
                     app.updateLabel(defaultName)
                 }
@@ -137,7 +137,7 @@ def appButtonHandler(String btn) {
 }
 
 def confirmPage() {
-    if (atomicState.token == null) {
+    if (state.token == null) {
         log.warn ("BWA User notAuthenticated() state.token == null, You must login to BWA Cloud on the Main Page of the App before proceeding")
         dynamicPage(name: "confirmPage", uninstall: false, install: false) {
             section(sectionHeader("Not Logged In!")) {
