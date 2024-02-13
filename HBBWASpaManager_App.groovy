@@ -156,7 +156,7 @@ def confirmPage() {
                 }
             }
             if (spaConfiguration != null) {
-                atomicState.spaConfiguration = spaConfiguration
+                state.spaConfiguration = spaConfiguration
                 def deviceCount = spaConfiguration.count { key, value -> value == true }
                 section (sectionHeader("Found the following ${deviceCount} devices attached to your hot tub")) {
                     def index = 1
@@ -446,7 +446,7 @@ def initialize() {
         if(!childDevice) {
             logInfo ("Adding device: ${settings.spaParentDeviceName} [${state.spa["deviceId"]}]")
             childDevice = addChildDevice(NAMESPACE, PARENT_DEVICE_NAME_PREFIX, state.spa["deviceId"], [label: settings.spaParentDeviceName])
-            atomicState.spa["deviceDisplayName"] = settings.spaParentDeviceName
+            state.spa["deviceDisplayName"] = settings.spaParentDeviceName
             childDevice.parseDeviceData(state.spa)
             childDevice.createChildDevices(state.spaConfiguration)
         }
