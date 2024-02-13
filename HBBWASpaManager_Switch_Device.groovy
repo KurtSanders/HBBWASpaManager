@@ -24,7 +24,7 @@ import groovy.transform.Field
 
 @Field static String SWITCH_CHILD_DEVICE_NAME_PREFIX = "HB BWA SPA Switch"
 @Field static String PARENT_DEVICE_NAME = "HB BWA SPA Parent"
-@Field static final String VERSION = "1.3.0"
+@Field static final String VERSION = "1.3.1"
 
 metadata {
     definition (name: SWITCH_CHILD_DEVICE_NAME_PREFIX, namespace: NAMESPACE, author: "Kurt Sanders") {
@@ -68,6 +68,8 @@ void parse(input) {
 }
 
 void installed() {
+    sendEvent(name: "switch", value: "off")
+    sendEvent(name: "speed", value: "unknown")
 }
 
 def updated() {

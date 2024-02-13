@@ -23,7 +23,7 @@
 
 @Field static String DEVICE_NAME_PREFIX = "HB BWA SPA"
 @Field static String PARENT_DEVICE_NAME = "HB BPA SPA Parent"
-@Field static final String VERSION = "1.3.0"
+@Field static final String VERSION = "1.3.1"
 
 @Field static final List VALID_SPA_BYTE_ARRAY = [-1, -81]
 @Field static String THERMOSTAT_CHILD_DEVICE_NAME = "HB BWA SPA Thermostat"
@@ -50,6 +50,7 @@ metadata {
         attribute "ReadyMode", "enum", READYMODES
         attribute "spaStatus", "string"
         attribute "spaTime", "string"
+        attribute "spaTimeLocalDeltaMins", "number"
         attribute "is24HourTime", "enum", ["true","false"]
         attribute "temperature", "number"
         attribute "TempRange", "enum", TEMPRANGES
@@ -62,6 +63,17 @@ metadata {
         command "setSpaToLocalTime"
         command "setTempRange"
     }
+}
+
+preferences {
+	//Logging Options
+	input name: "logLevel", type: "enum", title: fmtTitle("Logging Level"),
+		description: fmtDesc("Logs selected level and above"), defaultValue: 0, options: LOG_LEVELS
+	input name: "logLevelTime", type: "enum", title: fmtTitle("Logging Level Time"),
+		description: fmtDesc("Time to enable Debug/Trace logging"),defaultValue: 0, options: LOG_TIMES
+	//Help Link
+	input name: "helpInfo", type: "hidden", title: fmtHelpInfo("Community Link")
+    input name: "autoSpaTimeSync", type: "bool", title: "Automatically sync spa time to local hub time"
 }
 
 @Field static Map PUMP_BUTTON_MAP = [
@@ -238,14 +250,41 @@ def parsePanelData(encodedData) {
                 [name: "thermostatOperatingState", value: "idle"]
             ])
         }
-        // Send events to Switch child devices
+        // Reset child switch devices switch and speed currentValues when spa is offline
+        logDebug "Resetting switch child devices capabilities and attribute state(s) due to spa 'Offline'"
         def switchDevices = getChildDevices()
         switchDevices.each {
             if (it.typeName == "HB BWA SPA Switch") {
-                it.sendEvent(name: "speed", value: UNKNOWN)
+                if (it.currentValue('speed')=="${UNKNOWN}") {
+                    logDebug "Reset device: '${it.label}' speed to ${UNKNOWN}"
+                    it.sendEvent(name: "speed",  value: UNKNOWN, descriptionText: "Auto-reset speed to 'unkown' by spa 'offline'")
+                }
+                if (it.currentValue('switch')=='on') {
+                    logDebug "Reset device: '${it.label}' switch to 'off'"
+                    it.sendEvent(name: "switch", value: "off"  , descriptionText: "Auto-reset switch to 'off' by spa 'offline'")
+                }
             }
         }
         return false
+    }
+
+    // Get Spa Time
+    String currentSpaTimeHour = decoded[7].toString().padLeft(2,"0")
+    String currentSpaTimeMinute = decoded[8].toString().padLeft(2,"0")
+    String is24HourTime = (decoded[13] & 2) != 0 ? "true" : "false"
+    String spaTime = Date.parse("HHmm", "${currentSpaTimeHour}${currentSpaTimeMinute}").format((is24HourTime.toBoolean())?"HH:mm":"h:mm a")
+
+    // Get delta mins from spa internal clock to hub's localtime
+    use(TimeCategory){
+        def locaTime = Date.parse("HH:mm",nowFormatted("HH:mm"))
+        logTrace "locaTime = ${locaTime}"
+        def spaHHmm = Date.parse("HH:mm","${currentSpaTimeHour}:${currentSpaTimeMinute}")
+        logTrace "spaHHmm = ${spaHHmm}"
+        def duration = TimeCategory.minus(spaHHmm, locaTime)
+        logTrace "duration= ${duration}"
+        Integer durationMins = duration.hours*60 + duration.minutes
+        logTrace "durationMins= ${durationMins}"
+        sendEvent(name: "spaTimeLocalDeltaMins", value: "${durationMins}")
     }
 
     def temperatureScale = (decoded[13] & 1) == 0 ? "F" : "C"
@@ -278,7 +317,6 @@ def parsePanelData(encodedData) {
             [name: "thermostatSetpoint", value: actualTemperature, unit: temperatureScale]
         ])
         thermostatChildDevice.sendEvents([
-//            [name: "thermostatMode", value: isHeating ? "heat" : "off"],
             [name: "thermostatMode", value: "heat"],
             [name: "thermostatOperatingState", value: isHeating ? "heating" : "idle"],
         ])
@@ -497,11 +535,6 @@ def parsePanelData(encodedData) {
         targetTemperature /= 2.0F
     }
 
-    // Spa Time
-    String currentTimeHour = decoded[7].toString().padLeft(2,"0")
-    String currentTimeMinute = decoded[8].toString().padLeft(2,"0")
-    String is24HourTime = (decoded[13] & 2) != 0 ? "true" : "false"
-    String spaTime = Date.parse("HHmm", "${currentTimeHour}${currentTimeMinute}").format((is24HourTime.toBoolean())?"HH:mm":"h:mm a")
 
     // Create events for the parent spa device
     sendEvent(name: "spaStatus",                 value: "${heatMode} ${isHeating ? "heating to ${targetTemperature}°${temperatureScale}" : "not heating"}")
@@ -524,8 +557,8 @@ def parsePanelData(encodedData) {
     }
 
     logTrace ("<br><ol><li>Actual Temperature   : ${actualTemperature}"
-              + "<li>Current Time Hour          : ${currentTimeHour}"
-              + "<li>Current Time Minute        : ${currentTimeMinute}"
+              + "<li>Current Time Hour          : ${currentSpaTimeHour}"
+              + "<li>Current Time Minute        : ${currentSpaTimeMinute}"
               + "<li>Is 24-Hour Time            : ${is24HourTime}"
               + "<li>Temperature Scale          : ${temperatureScale}"
               + "<li>Target Temperature         : ${targetTemperature}"
@@ -575,14 +608,4 @@ def fetchChild(createIfDoesntExist, String type, String name, Integer balboaApiB
 void refresh() {
     logInfo "BWA Cloud Refresh Requested"
     parent.pollChildren(override=true)
-}
-
-preferences {
-	//Logging Options
-	input name: "logLevel", type: "enum", title: fmtTitle("Logging Level"),
-		description: fmtDesc("Logs selected level and above"), defaultValue: 0, options: LOG_LEVELS
-	input name: "logLevelTime", type: "enum", title: fmtTitle("Logging Level Time"),
-		description: fmtDesc("Time to enable Debug/Trace logging"),defaultValue: 0, options: LOG_TIMES
-	//Help Link
-	input name: "helpInfo", type: "hidden", title: fmtHelpInfo("Community Link")
 }
