@@ -1,0 +1,21 @@
+{
+    "packageName": "BWA Spa Manager βeta",
+    "author": "Kurt Sanders",
+    "minimumHEVersion": "2.3.8",
+    "dateReleased": "2024-02-18",
+    "version": "1.3.2",
+    "documentationLink": "https://github.com/KurtSanders/HBBWASpaManager/blob/master/README.md",
+    "communityLink": "https://community.hubitat.com/t/release-hb-bwa-spamanager/128842",
+    "licenseFile": "",
+    "releaseNotes": "Unsupported Beta Release",
+    "bundles": [
+        {
+            "id": "3da05b78-d0d5-42a3-b45d-57df2002a191",
+            "name": "BWA Spa Manager Bundle Beta",
+            "namespace": "kurtsanders",
+            "version": "0.0.1",
+            "location": "https://github.com/KurtSanders/HBBWASpaManager/raw/master/beta-release/BWASpaManagerBundleBeta.zip",
+            "required": true
+        }
+    ]
+}
