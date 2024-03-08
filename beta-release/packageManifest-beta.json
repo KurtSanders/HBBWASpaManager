@@ -7,36 +7,36 @@
   "documentationLink": "https://github.com/KurtSanders/HBBWASpaManager/blob/master/README.md",
   "communityLink": "https://community.hubitat.com/t/release-hb-bwa-spamanager/128842",
   "licenseFile": "",
-  "releaseNotes": "Unsupported Beta Release",
+  "releaseNotes": "Unsupported Beta Release 0.5",
   "bundles": [
     {
       "id": "3da05b78-d0d5-42a3-b45d-57df2002a191",
       "name": "BWA Spa Manager Bundle Beta",
       "namespace": "kurtsanders",
       "version": "0.0.2",
-      "comment_location": "https://github.com/KurtSanders/HBBWASpaManager/raw/master/beta-release/BWASpaManagerBundleBeta.zip",
+      "location": "https://github.com/KurtSanders/HBBWASpaManager/raw/master/beta-release/BWASpaManagerBundleBeta.zip",
       "required": true
     }
   ],
-  "apps": [
+  "xapps": [
     {
       "id": "bc4ae4ab-f0eb-4505-a677-21ce430b3823",
       "name": "BWA Spa Manager",
       "namespace": "kurtsanders",
-      "comment_location": "https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/master/HBBWASpaManager_App.groovy",
+      "location": "https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/master/HBBWASpaManager_App.groovy",
       "version": "2.0.0",
       "required": true,
       "primary": true,
       "oauth": false
     }
   ],
-  "drivers": [
+  "xdrivers": [
     {
       "id": "d1747691-8d6e-4448-9aae-b0981fc6915a",
       "name": "HB BPA SPA Parent",
       "version": "2.0.0",
       "namespace": "kurtsanders",
-      "comment_location": "https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/master/HBBWASpaManager_Parent_Device.groovy",
+      "location": "https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/master/HBBWASpaManager_Parent_Device.groovy",
       "required": true
     },
     {
@@ -44,7 +44,7 @@
       "name": "HB BWA SPA Pump",
       "version": "2.0.0",
       "namespace": "kurtsanders",
-      "comment_location": "https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/master/HBBWASpaManager_Pump_Device.groovy",
+      "location": "https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/master/HBBWASpaManager_Pump_Device.groovy",
       "required": true
     },
     {
@@ -52,7 +52,7 @@
       "name": "HB BWA SPA Switch",
       "version": "2.0.0",
       "namespace": "kurtsanders",
-      "comment_location": "https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/master/HBBWASpaManager_Switch_Device.groovy",
+      "location": "https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/master/HBBWASpaManager_Switch_Device.groovy",
       "required": true
     },
     {
@@ -60,7 +60,7 @@
       "name": "HB BWA SPA Thermostat",
       "version": "2.0.0",
       "namespace": "kurtsanders",
-      "comment_location": "https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/master/HBBWASpaManager_Thermostat_Device.groovy",
+      "location": "https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/master/HBBWASpaManager_Thermostat_Device.groovy",
       "required": true
     }
   ]
