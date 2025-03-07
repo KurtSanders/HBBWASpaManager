@@ -1,13 +1,13 @@
 {
-  "packageName": "BWA Spa Manager",
+  "packageName": "BWA Spa Manager - Cloud Control",
   "author": "Kurt Sanders",
-  "minimumHEVersion": "2.3.8",
+  "minimumHEVersion": "2.4.0",
   "dateReleased": "2025-03-07",
   "version": "2.0.1",
   "documentationLink": "https://github.com/KurtSanders/HBBWASpaManager/blob/master/README.md",
   "communityLink": "https://community.hubitat.com/t/release-hb-bwa-spamanager/128842",
   "licenseFile": "",
-  "releaseNotes": "REQUIRES HPM v1.9.2 or higher for HPM install or update.\n1. Added code for handling inital logging type and time values during new installation.\n2. Added code for handling unexpected spa offline processing and resetting currentValue of pump switches and speed values.\n3. Converted all state variables to immediate atomicState.\n4. Converted realtime BWA http processing to the runIN background which will speed up UI during exit.\n5. Added a new data attribute, 'spaTimeLocalDeltaMins', to the spa parent device which will calculate the delta mins between spa time and hub local time. This new data value can be used in a RM/WebCore piston to evaulate the delta time between the spa and local hub time and then use parent spa device command 'setSpaToLocalTime' to sync spa time to local hub time.\n6. Added 'Pause' and 'Resume' button in app UI to allow user to temporarily stop & resume cloud polling.",
+  "releaseNotes": "Version 2.01.\n\nREQUIRES HPM v1.9.3 or higher for HPM new install or version update.\n1. This is a major update to the app and device drivers.  If your previous version of this app is working as you desire, you need not update.\n\n2.Added HTML code to generate a matrix style monitoring of various status.\n\n3.Added new command control options for most of the Spa settings.",
   "bundles": [
     {
       "id": "3da05b78-d0d5-42a3-b45d-57df2002a191",

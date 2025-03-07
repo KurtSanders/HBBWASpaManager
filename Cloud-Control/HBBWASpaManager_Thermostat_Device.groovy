@@ -23,24 +23,23 @@ import groovy.transform.Field
 
 @Field static String THERMOSTAT_CHILD_DEVICE_NAME_PREFIX = "HB BWA SPA Thermostat"
 @Field static String PARENT_DEVICE_NAME = "HB BWA SPA Thermostat"
-@Field static final String VERSION = "1.3.0"
+@Field static final String VERSION = "2.0.1"
 @Field static final List THERMO_STAT_MODES = ["heat","Off"]
 @Field static final List THERMO_STAT_OPERATING_STATE = ["heating", "idle", "pending heat"]
 @Field static final List THERMO_STAT_FAN_MODES = ["off", "circulate"]
 
 metadata {
     definition (name: THERMOSTAT_CHILD_DEVICE_NAME_PREFIX, namespace: NAMESPACE, author: "Kurt Sanders") {
-        capability "Thermostat"
+//        capability "Thermostat"
         capability "Refresh"
         capability "Actuator"
         capability "Sensor"
         capability "Initialize"
         capability "ThermostatHeatingSetpoint"
-        capability "ThermostatCoolingSetpoint"
         capability "ThermostatSetpoint"
         capability "TemperatureMeasurement"
-        capability "ThermostatMode"
-        capability "ThermostatOperatingState"
+//        capability "ThermostatMode"
+//        capability "ThermostatOperatingState"
 
         attribute "supportedThermostatFanModes", 'JSON_OBJECT'
         attribute "supportedThermostatModes", 'JSON_OBJECT'
@@ -48,15 +47,12 @@ metadata {
         attribute "thermostatOperatingState", "enum",  THERMO_STAT_OPERATING_STATE
         attribute "thermostatMode", "enum", THERMO_STAT_MODES
 
-        command "setHeatingSetpoint",    [[name:'Heating Setpoint*', type:'NUMBER', description:'Heating setpoint temperature']]
-        command "setCoolingSetpoint",    [[name:'Cooling Setpoint*', type:'NUMBER', description:'Cooling setpoint temperature']]
-		command "setThermostatFanMode",	 [[name: 'Fan Mode*', type: 'ENUM', constraints: THERMO_STAT_FAN_MODES]]
-		command "setThermostatMode",     [[name: 'Thermostat Mode*', type: 'ENUM', constraints: THERMO_STAT_MODES]]
-        command "getTemperatureRange"
+        command "setHeatingSetpoint",    [[name:'Heating Setpoint* 55-104°F', type:'NUMBER', description:'Heating setpoint temperature from 55°F-104°F', range: "55..104"]]
+//      command "setCoolingSetpoint",    [[name:'Cooling Setpoint*', type:'NUMBER', description:'Cooling setpoint temperature']]
+//		command "setThermostatFanMode",	 [[name: 'Fan Mode*', type: 'ENUM', constraints: THERMO_STAT_FAN_MODES]]
+//		command "setThermostatMode",     [[name: 'Thermostat Mode*', type: 'ENUM', constraints: THERMO_STAT_MODES]]
+//      command "getTemperatureRange"
 
-        preferences {
-            input "defaultOnTemperature", "number", title: "Default Temperature When Turned On", range: getTemperatureRange()
-        }
     }
 }
 void initialize() {
@@ -69,6 +65,10 @@ void updated() {
 }
 
 void installed() {
+    setLogLevel("Info", "30 Minutes")
+    logInfo "New Install: Inital logging level set at 'Info' for 30 Minutes"
+    logInfo "Setting Spa Thermo defaults..."
+    sendEvent(name: "switch", value: "off")
     String stmJSON = new groovy.json.JsonBuilder(THERMO_STAT_MODES).toString()
     sendEvent(name: "supportedThermostatModes", value: stmJSON, displayed: false, isStateChange: true)
     stmJSON = new groovy.json.JsonBuilder(THERMO_STAT_FAN_MODES).toString()
@@ -100,34 +100,24 @@ void auto() {
 }
 
 void setThermostatMode(mode) {
-    logDebug "==> setThermostatMode(${mode})"
+    logTrace "==> setThermostatMode(${mode})"
     sendEvent([name: "thermostatMode", value: "heat"])
 //    sendEvent([name: "thermostatMode", value: mode])
 }
 
 void setCoolingSetpoint(setpoint) {
     notImplemennted("setCoolingSetpoint(setpoint)= ${setpoint}")
-//    logDebug "==> setCoolingSetpoint(setpoint)= ${setpoint}"
-//    sendEvent(name: "coolingSetpoint", value: setpoint)
-//    logInfo "Waiting 5 secs to lower updateThermostatSetpoint to ${setpoint}..."
-//    runIn(5, "updateThermostatSetpoints", [overwrite: true, data: setpoint])
 }
 
 void setHeatingSetpoint(setpoint) {
-    logDebug "==> setHeatingSetpoint(setpoint)= ${setpoint}"
-    logInfo "Waiting 5 secs to raise updateThermostatSetpoint to ${setpoint}..."
+    logTrace "==> setHeatingSetpoint(), waiting 5 secs for more input to updateThermostatSetpoint to ${setpoint}..."
     runIn(5, "updateThermostatSetpoints", [overwrite: true, data: setpoint])
 }
 
 def updateThermostatSetpoints(setpoint) {
-    logInfo "updateThermostatSetpoints(${setpoint})"
+    logInfo "==>updateThermostatSetpoints(${setpoint})"
     sendEvent(name: "heatingSetpoint", value: setpoint)
     parent?.sendCommand("SetTemp", device.currentValue("temperatureScale") == "C" ? setpoint * 2 : setpoint)
-    runIn(5, "refresh")
-}
-
-def getTemperatureRange() {
-    return "(26.5..104)"
 }
 
 def refresh() {
@@ -142,8 +132,7 @@ void off() {
 }
 
 void emergencyHeat() {
-    logInfo "Emergency Heat Requested"
-    setThermostatMode("heat")
+    notImplemennted("Emergency Heat Requested")
 }
 
 void fanCirculate() {

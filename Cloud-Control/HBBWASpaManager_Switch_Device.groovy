@@ -2,7 +2,7 @@
  *  Hubitat BWA Spa Manager
  *  -> Switch Device Driver
  *
- *  Copyright 2023 Kurt Sannders
+ *  Copyright 2023, 2024 Kurt Sannders
  *   based on work Copyright 2020 Richard Powell that he did for Hubitat
  *
  *  Copyright 2020 Richard Powell
@@ -24,52 +24,50 @@ import groovy.transform.Field
 
 @Field static String SWITCH_CHILD_DEVICE_NAME_PREFIX = "HB BWA SPA Switch"
 @Field static String PARENT_DEVICE_NAME = "HB BWA SPA Parent"
-@Field static final String VERSION = "1.3.1"
+@Field static final String VERSION = "2.0.1"
+@Field static final List SUPPORTED_SWITCH_MODES = ["off", "on"]
+@Field static final List SUPPORTED_ACCELERATION_MODES = ["inactive", "active"]
 
 metadata {
     definition (name: SWITCH_CHILD_DEVICE_NAME_PREFIX, namespace: NAMESPACE, author: "Kurt Sanders") {
-        capability "Switch"
         capability "Refresh"
+        capability "Switch"
+        capability "AccelerationSensor"
+        capability "Momentary"
+        capability "Actuator"
 
-        attribute "switch", "enum", ["on", "off"]
+        attribute "acceleration", "enum", SUPPORTED_ACCELERATION_MODES
+        attribute "switch", "enum", SUPPORTED_SWITCH_MODES
         attribute "balboaAPIButtonNumber", "number"
-        attribute "speed", "enum", ["off","low","high","unknown"]
 
-        command "on"
-        command "off"
+        command "push"   , [[name:"Push Button", description:"Push Button"]]
     }
-    preferences() {
-        section(""){
-            input "buttonPresses", "number", title: "# of Spa Button Presses when Switch state is turned 'On' (1..5)", required: true, defaultValue: 1, range: "1..5"
-        }
-    }
-
 }
 
-void parse(input) {
-    logInfo "Switch/speed: ${input}"
-
-    switch (input) {
-        case "low":
-        case "high":
-            sendEvent(name: "speed", value: input)
-        case "on":
-        case "true":
-            sendEvent(name: "switch", value: "on")
-            break;
-        case "off":
-        case "false":
-            sendEvent(name: "switch", value: "off")
-            sendEvent(name: "speed", value: "off")
-            break;
+void parse(state) {
+    logTrace "Switch Device parse(${state})"
+    switch (state) {
+        case 'off':
+        case 'on':
+        logTrace "switch: ${state}"
+        sendEvent(name: "switch", value: state)
+        break
+        // Pump 0 is a Circ Pump and only a readonly attribute as acceleration
+        case 'active':
+        case 'inactive':
+        logTrace "acceleration: ${state}"
+        sendEvent(name:'acceleration', value: state)
+        break
         default:
-            sendEvent(name: "speed", value: "unknown")
+            logErr "Invalid state ${state} sent, Ignored"
+        break
     }
 }
 
 void installed() {
+    setLogLevel("Info", "30 Minutes")
+    logInfo "New Install: Inital logging level set at 'Info' for 30 Minutes"
     sendEvent(name: "switch", value: "off")
-    sendEvent(name: "speed", value: "unknown")
 }
 
 def updated() {
@@ -82,20 +80,22 @@ void setBalboaAPIButtonNumber(balboaAPIButtonNumber) {
 }
 
 void on() {
-    if (device.currentValue("switch", true) != "on") {
-        sendEvent(name: "switch", value: "on")
-        for(int i = 0;i<buttonPresses;i++) {
-            parent?.sendCommand("Button", device.currentValue("balboaAPIButtonNumber"))
-        }
-    }
+    push()
 }
 
 void off() {
-    if (device.currentValue("switch", true) != "off")
-    {
-        sendEvent(name: "switch", value: "off")
-        parent?.sendCommand("Button", device.currentValue("balboaAPIButtonNumber"))
-    }
+    push()
+}
+
+void push() {
+    def balboaAPIButtonNumber = device.currentValue("balboaAPIButtonNumber")
+    if (balboaAPIButtonNumber) {
+        if (device.currentValue("switch", true) != state) {
+            logTrace "Sending Button, ${balboaAPIButtonNumber} to parent"
+            parent?.sendCommand("Button", balboaAPIButtonNumber)
+        }
+    } else sendEvent(name: "errorMsg", value: "Error: ${device.displayName} is not user controllable by switches")
+
 }
 
 def refresh() {
