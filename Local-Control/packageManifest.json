@@ -32,7 +32,7 @@
       "name": "Balboa Hot Tub Local Driver",
       "version": "0.0.1",
       "namespace": "kurtsanders",
-      "location": "https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/Local-Control/master/Balboa Hot Tub Local Driver.groovy",
+      "location": "https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/refs/heads/master/Local-Control/Balboa%20Hot%20Tub%20Local%20Driver.groovy",
       "required": true
     }
   ]

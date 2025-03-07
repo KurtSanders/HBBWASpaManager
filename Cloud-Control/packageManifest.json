@@ -31,7 +31,7 @@
       "id": "bc4ae4ab-f0eb-4505-a677-21ce430b3823",
       "name": "BWA Spa Manager",
       "namespace": "kurtsanders",
-      "location": "https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/master/HBBWASpaManager_App.groovy",
+      "location": "https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/refs/heads/master/Cloud-Control/HBBWASpaManager_App.groovy",
       "version": "2.0.1",
       "required": true,
       "primary": true,
@@ -44,7 +44,7 @@
       "name": "HB BPA SPA Parent",
       "version": "2.0.1",
       "namespace": "kurtsanders",
-      "location": "https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/master/HBBWASpaManager_Parent_Device.groovy",
+      "location": "https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/refs/heads/master/Cloud-Control/HBBWASpaManager_Parent_Device.groovy",
       "required": true
     },
     {
@@ -52,7 +52,7 @@
       "name": "HB BWA SPA Pump",
       "version": "2.0.1",
       "namespace": "kurtsanders",
-      "location": "https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/master/HBBWASpaManager_Pump_Device.groovy",
+      "location": "https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/refs/heads/master/Cloud-Control/HBBWASpaManager_Pump_Device.groovy",
       "required": true
     },
     {
@@ -60,7 +60,7 @@
       "name": "HB BWA SPA Switch",
       "version": "2.0.1",
       "namespace": "kurtsanders",
-      "location": "https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/master/HBBWASpaManager_Switch_Device.groovy",
+      "location": "https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/refs/heads/master/Cloud-Control/HBBWASpaManager_Switch_Device.groovy",
       "required": true
     },
     {
@@ -68,7 +68,7 @@
       "name": "HB BWA SPA Thermostat",
       "version": "2.0.1",
       "namespace": "kurtsanders",
-      "location": "https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/master/HBBWASpaManager_Thermostat_Device.groovy",
+      "location": "https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/refs/heads/master/Cloud-Control/HBBWASpaManager_Thermostat_Device.groovy",
       "required": true
     }
   ]
