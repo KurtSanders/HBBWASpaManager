@@ -101,6 +101,14 @@ def verifyChildrenDevices() {
     return msg
 }
 
+def statusOffline(errorMessage="BWA Cloud Server Unreachable") {
+    updateLabel("Offline")
+    def d = getChildDevice(state.spa["deviceId"])
+	d.sendEvent(name: "online", value: "Offline")
+    d.sendEvent(name: "spaStatus", value: UNKNOWN)
+    d.sendEvent(name: "cloudStatus", value: "${errorMessage}")
+}
+
 def mainPage() {
     initVariableDefaults()
 
@@ -134,7 +142,7 @@ def mainPage() {
                 href("confirmPage", title: fmtTitle("View your spa's mechanical configuration and name parent spa control device."), description: fmtDesc(spaManifest() + "\n" + "Click to generate a new or updated spa mechanical configuration.  (<i>This is not typically needed if this configuration is accurate</i>)"))
             }
         }
-        
+
         if (state.spa) {
             // BWA Cloud Polling Options
             section(sectionHeader("How frequently do you want to poll the BWA cloud for changes? (Use a lower number if you care about trying to capture and respond to \"change\" events as they happen)")) {
@@ -463,17 +471,17 @@ def doCallout(calloutMethod, urlPath, calloutBody, contentType, queryParams) {
     } catch (groovyx.net.http.HttpResponseException e) {
         logDebug "doCallout(): Http Error (${e.response.status}): ${e.response.statusLine.reasonPhrase}"
         atomicState.HttpResponseExceptionReponse = "http rc=${e.response.status}, ${e.response.statusLine.reasonPhrase}"
-        updateLabel("Offline")
+        statusOffline("Http Error (${e.response.status}): ${e.response.statusLine.reasonPhrase}")
         return [status: "${e.response.status}", data: "${e.response.statusLine.reasonPhrase}"]
     } catch (e) {
         logWarn "doCallout(): Something went wrong: ${e}"
-        updateLabel("Offline")
+        statusOffline("${e}")
         return [error: e.message]
     }
     switch (response.status) {
         case '200':
         if (response.data == "Device Not Connected") {
-            updateLabel("Offline")
+            statusOffline("Device Not Connected")
             return response
         }
         if (response?.data.toString().toLowerCase().contains('command received')) {
@@ -488,7 +496,7 @@ def doCallout(calloutMethod, urlPath, calloutBody, contentType, queryParams) {
         break
     }
     logDebug "doCallout(): Changing spa state to Offline do to response.status = ${response.status} or response.data=${response.data}"
-    updateLabel("Offline")
+    statusOffline("${response.status}")
     try {
         if(response.hasError()) {
             logErr "doCallout(): error message: '${response.getErrorMessage()}'"
@@ -720,7 +728,7 @@ void pollChildrenAsyncHandler(response, data) {
         break
         case '504':
         logWarn "<font color=red><b>504: ${response?.errorMessage}</b></font> - Will retry poll"
-        childDev.parseDeviceData(['cloudStatus':"${response?.errorMessage}"])
+        statusOffline("${response?.errorMessage} - Retrying")
         break
         default:
             response.properties.each {
@@ -743,7 +751,7 @@ void pollChildrenAsyncHandler(response, data) {
             runIn(10, pollChildren, [overwrite: true, data: refreshOverride=true])
         } else {
             logWarn ("pollChildrenAsyncHandler(): BWA Cloud did not successfully return any valid data for the SPA, retry polling stopped after 2 times. Is your BWA Spa Offline?")
-            updateLabel("Offline")
+            statusOffline("BWA Cloud did not successfully return any valid data for the SPA")
             atomicState.childPollcount = 0
         }
     }
@@ -784,7 +792,7 @@ def ParseDeviceConfigurationData(encodedData) {
     logTrace "spaStatusHexArray= ${spaStatusHexArray}"
     if ( (encodedData != null) && (spaStatusHexArray[3] != VALID_SPA_STATUS_BYTE) ) {
         logDebug "ParseDeviceConfigurationData() changing spa state to Offline"
-        updateLabel("Offline")
+        statusOffline("BWA Cloud did not successfully return any valid data for the SPA")
         log.warn encodedData
         atomicState.HttpResponseExceptionReponse = encodedData.toString()
         return null
