@@ -51,20 +51,24 @@ definition(name: PARENT_DEVICE_NAME,
         attribute "is24HourTime", "enum", ["true","false"]
         attribute "isFilter2Active", "enum", ["true","false"]
     	attribute "macAddress", "string"
-        attribute "Mister", "string"
-        attribute "Light1", "string"
-        attribute "Light2", "string"
+        attribute "network", "enum", ["online","offline"]
+        attribute "Mister", "enum", ["on","off"]
+        attribute "Light1", "enum", ["on","off"]
+        attribute "Light2", "enum", ["on","off"]
+        attribute "Lights", "enum", ["on","off"]
         attribute "pollingInterval", "string"
         attribute "Pump0", "string"
-        attribute "Pump1", "string"
-        attribute "Pump2", "string"
-        attribute "Pump3", "string"
-        attribute "Pump4", "string"
-        attribute "Pump5", "string"
-        attribute "Pump6", "string"
+        attribute "Pump1", "enum", ["off","low", "high"]
+        attribute "Pump2", "enum", ["off","low", "high"]
+        attribute "Pump3", "enum", ["off","low", "high"]
+        attribute "Pump4", "enum", ["off","low", "high"]
+        attribute "Pump5", "enum", ["off","low", "high"]
+        attribute "Pump6", "enum", ["off","low", "high"]
+        attribute "Pumps", "enum", ["on","off"]
         attribute "readyMode", "enum", READYMODES
         attribute "spaPanelHTML", "string"
         attribute "spaStatus", "string"
+        attribute "spaSessionStatus", "string"
         attribute "spaTime", "string"
         attribute "spaTimeLocalDeltaMins", "number"
         attribute "temperature", "number"
@@ -97,7 +101,7 @@ definition(name: PARENT_DEVICE_NAME,
 
 // Constants
 @Field static final String  PARENT_DEVICE_NAME   		= "Balboa Hot Tub Local Driver"
-@Field static final String  VERSION 					= "0.0.1"
+@Field static final String  VERSION 					= "0.0.2"
 @Field static final String  FILENAME_CSS 				= "BalboaLocalPanelTable.css"
 @Field static final Integer READ_WAIT_SECS 				= 10
 
@@ -136,7 +140,7 @@ void installed() {
 }
 
 void updated() {
-	logInfo "Preferences Updated..."
+	logDebug "Preferences Updated..."
     if (ipaddress==null || ipaddress.isEmpty()) return
 
     checkLogLevel()  // Set Logging Objects
@@ -146,13 +150,13 @@ void updated() {
         switch(poll_interval) {
             case 'off':
                 unschedule(refresh)
-                logInfo "Auto polling is stopped, use manual command 'refresh' button to update device panel status"
+                logDebug "Auto polling is stopped, use manual command 'refresh' button to update device panel status"
 		        makeEvent('pollingInterval',poll_interval)
                 break
             default:
                 // Verify valid interval in case we are invoked outside this method
                 if(poll_interval.findAll(/^runEvery((5|10|15|30)Minutes|1Minute|1Hour|3Hours)$/)) {
-                	logInfo "Setting Auto polling to '${POLLING_OPTIONS[poll_interval]}'"
+                	logDebug "Setting Auto polling to '${POLLING_OPTIONS[poll_interval]}'"
 			        makeEvent('pollingInterval',poll_interval)
             		this."${poll_interval}"('refresh')
                 } else {
@@ -437,18 +441,19 @@ def parse(String message) {
         }
 
         if (BALBOA_MESSAGE_TYPES[messageType]) {
+            makeEvent('spaSessionStatus', "<span style=color:yellow;>Received a ${BALBOA_MESSAGE_TYPES[messageType].name} response from spa</span>")
             logDebug "<span style=color:${BALBOA_MESSAGE_TYPES[messageType].color};>${BALBOA_MESSAGE_TYPES[messageType].name} Update: ${messagePacket}</span>"
         } else {
             logErr "<span style=color:red;>Message type#: ${messageType} unknown: ${messagePacket}</span>"
             return
         }
         if(BALBOA_MESSAGE_TYPES[messageType].program) {
-            logInfo "Calling ${BALBOA_MESSAGE_TYPES[messageType].name} Message Handler: ${BALBOA_MESSAGE_TYPES[messageType].program}"
+            logDebug "Calling ${BALBOA_MESSAGE_TYPES[messageType].name} Message Handler: ${BALBOA_MESSAGE_TYPES[messageType].program}"
 	        // Dynamically call the correct parsing program for the messagePacket hex number
             def messageHandler = this.&(BALBOA_MESSAGE_TYPES[messageType].program)
             messageHandler(messagePacket)
         } else {
-            logInfo "No Message Handler is defined for ${BALBOA_MESSAGE_TYPES[messageType].name} for message ${state.messageCount}: ${messagePacket}"
+            logDebug "No Message Handler is defined for ${BALBOA_MESSAGE_TYPES[messageType].name} for message ${state.messageCount}: ${messagePacket}"
         }
     }
 }
@@ -570,6 +575,7 @@ def parsePanelData(hexData) {
     def now = new Date().format('EEE MMM d, h:mm:ss a',location.timeZone)
 
     makeEvent('presence', 'present')
+    makeEvent('network', 'online')
 
     // Get Spa Time
     String currentSpaTimeHour = decoded[3].toString().padLeft(2,"0")
@@ -764,8 +770,10 @@ def parsePanelData(hexData) {
 	// If any pump is on, switch = on
         if (decoded[11] > 0 && decoded[12] > 0) {
         makeEvent("switch", "on")
+        makeEvent("pumps", "on")
     } else {
         makeEvent("switch", "off")
+        makeEvent("pumps", "off")
     }
 
     // As far as I know, blower is not controllable, just report state in parent child device?
@@ -807,6 +815,10 @@ def parsePanelData(hexData) {
     	    makeEvent(accessory, light2)
         }
     }
+
+    if (light1 == 'on' || light2 == 'on') makeEvent(lights, 'on')
+    else makeEvent(lights, 'off')
+
 
     // Mister
     def misterState
@@ -1097,13 +1109,14 @@ def socketStatus(String socketMessage) {
 
 // Wrapper for socket_connect
 def connect() {
+    logInfo "Attempting to connect to spa..."
     return socket_connect()
 }
 
 boolean socket_connect() {
     // Check contact status for socket_status
     if (device.currentValue("contact")=='open') {
-        logDebug "Socket is already open"
+        logInfo "Socket is already open"
         return true
     }
 
@@ -1117,27 +1130,29 @@ boolean socket_connect() {
     runIn(READ_WAIT_SECS,'socket_close')
 
 	try {
-        logDebug "Attempting to connect to Spa device..."
+        logInfo "Attempting to connect to Spa device..."
 		interfaces.rawSocket.connect(settings.ipaddress, 4257, byteInterface: true, readDelay: SOCKET_CONNECT_READ_DELAY)
         rc = true
 	} catch (java.net.NoRouteToHostException ex) {
-		logErr "No Route To Host - Can't connect to spa, make sure spa is on the network.  Exiting.."
+		logErr "Error: No Route To Host - Can't connect to spa, make sure spa is on the network.  Exiting.."
 		rc = false
 	} catch (java.net.SocketTimeoutException ex) {
-		logErr "Socket Timeout - Can't connect to spa's socket, make sure spa is online and accepting network connections.  Exiting.."
+		logErr "Error: Socket Timeout - Can't connect to spa's socket, make sure spa is online and accepting network connections.  Exiting.."
 		rc = false
 	} catch (e) {
-		logErr "Error $e"
+		logErr "Error: $e"
 		rc = false
     }
     logDebug "Socket_Connect rc=${rc}"
     makeEvent('contact', (rc)?'open':'closed')
     makeEvent('presence', (rc)?'present':'not present')
+    makeEvent('network', (rc)?'online':'offline')
     return rc
 }
 
 // Wrapper for socket_write
 def send(message) {
+    logInfo "Sending command to Spa device..."
     return socket_write(message)
 }
 
@@ -1169,14 +1184,14 @@ def disconnect() {
 }
 
 boolean socket_close() {
-	logDebug  "Socket_close()"
+    logInfo  "Command complete at ${nowFormatted('MMM-dd h:mm:ss a')}"
     boolean rc = false //default
 
 	try {
 		interfaces.rawSocket.close()
         rc = true
 	} catch (e) {
-		logErr "Could not close socket: $e"
+		logErr "Error: Could not close socket: $e"
         rc = false
         return rc
 	}

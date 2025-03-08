@@ -2,18 +2,18 @@
   "packageName": "BWA Spa Manager - Local Control",
   "author": "Kurt Sanders",
   "minimumHEVersion": "2.4.0",
-  "dateReleased": "2025-03-07",
-  "version": "0.0.1",
+  "dateReleased": "2025-03-08",
+  "version": "0.0.2",
   "documentationLink": "https://github.com/KurtSanders/HBBWASpaManager/blob/master/README.md",
   "communityLink": "https://community.hubitat.com/t/release-hb-bwa-spamanager/128842",
   "licenseFile": "",
-  "releaseNotes": "Version 0.0.1\n\nREQUIRES HPM v1.9.3 or higher for HPM install or update.\n1. Hubitat Device driver only required to direct connect locally to the SPA Balboa WiFi module.\n\n2. Requires assigning a static TCP address to your SPA WiFi controller.",
+  "releaseNotes": "Version 0.0.2\nREQUIRES HPM v1.9.3 or higher for HPM install or update.\n1. Hubitat Device driver only required to direct connect locally to the SPA Balboa WiFi module.\n\n2. Requires assigning a static TCP address to your SPA WiFi controller.\n3.Added new attributes for status messages.",
   "bundles": [
     {
       "id": "2d904d10-35d6-4701-8fbf-7cd2e98722b9",
       "name": "BalboaHotTubBundle",
       "namespace": "kurtsanders",
-      "version": "0.0.1",
+      "version": "0.0.2",
       "location": "https://github.com/KurtSanders/HBBWASpaManager/raw/master/bundles/BalboaHotTubBundle.zip",
       "required": true
     },
@@ -30,7 +30,7 @@
     {
       "id": "394c78e2-f309-4c59-bc82-46e47f80251b",
       "name": "Balboa Hot Tub Local Driver",
-      "version": "0.0.1",
+      "version": "0.0.2",
       "namespace": "kurtsanders",
       "location": "https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/refs/heads/master/Local-Control/Balboa%20Hot%20Tub%20Local%20Driver.groovy",
       "required": true

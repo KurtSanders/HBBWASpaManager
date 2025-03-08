@@ -10,7 +10,7 @@ library (
     name: "Balboa-Hot-Tub-API-Library",
     namespace: "kurtsanders",
     documentationLink: "https://github.com/KurtSanders/",
-    version: "0.0.1",
+    version: "0.0.2",
     disclaimer: "This library is only for use with SanderSoft Apps and Drivers."
 )
 
@@ -417,12 +417,14 @@ def logMessage(String msg) {
 }
 
 void logErr(String msg) {
+    makeEvent("spaSessionStatus",msg)
     if (logLevelInfo.level>=1) log.error "${logMessage(msg)}"
 }
 void logWarn(String msg) {
     if (logLevelInfo.level>=2) log.warn "${logMessage(msg)}"
 }
 void logInfo(String msg) {
+    makeEvent("spaSessionStatus",msg)
     if (logLevelInfo.level>=3) log.info "${logMessage(msg)}"
 }
 void logDebug(String msg) {
