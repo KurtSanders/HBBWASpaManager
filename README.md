@@ -1,6 +1,10 @@
 # HB BWA SpaManager (Cloud Control & Direct Local TCP)
 <img src="https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/master/images/hot-tub.png" width="50"> (forked from [richardpowellus/HBBWASpaManager](https://github.com/richardpowellus/HBBWASpaManager)
 
+<img src="https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/master/images/Cloud-Local-Connection-Image.jpg">
+
+---
+
 <img src="https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/master/images/HE%20dashboard-1.jpg">
 
 * Dashboard and Tiles shown above have been customized by [Tile Master by BPTWorld apps](https://community.hubitat.com/t/release-tile-master-display-multiple-devices-that-can-be-controlled-from-the-tile/23140)
