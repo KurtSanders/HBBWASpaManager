@@ -3,11 +3,11 @@
   "author": "Kurt Sanders",
   "minimumHEVersion": "2.4.0",
   "dateReleased": "2025-03-07",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "documentationLink": "https://github.com/KurtSanders/HBBWASpaManager/blob/master/README.md",
   "communityLink": "https://community.hubitat.com/t/release-hb-bwa-spamanager/128842",
   "licenseFile": "",
-  "releaseNotes": "Version 2.01.\n\nREQUIRES HPM v1.9.3 or higher for HPM new install or version update.\n1. This is a major update to the app and device drivers.  If your previous version of this app is working as you desire, you need not update.\n\n2.Added HTML code to generate a matrix style monitoring of various status.\n\n3.Added new command control options for most of the Spa settings.",
+  "releaseNotes": "Version 2.01.\nREQUIRES HPM v1.9.3 or higher for HPM new install or version update.\n1. This is a major update to the app and device drivers.  If your previous version of this app is working as you desire, you need not update.\n3.Added additional error handling routines.",
   "bundles": [
     {
       "id": "3da05b78-d0d5-42a3-b45d-57df2002a191",
@@ -32,7 +32,7 @@
       "name": "BWA Spa Manager",
       "namespace": "kurtsanders",
       "location": "https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/refs/heads/master/Cloud-Control/HBBWASpaManager_App.groovy",
-      "version": "2.0.1",
+      "version": "2.0.2",
       "required": true,
       "primary": true,
       "oauth": false

@@ -25,7 +25,7 @@
 import groovy.transform.Field
 
 @Field static String PARENT_DEVICE_NAME            = "BWA Spa Manager"
-@Field static final String VERSION                 = "2.0.1"
+@Field static final String VERSION                 = "2.0.2"
 @Field static String BWGAPI_API_URL                = "https://bwgapi.balboawater.com/"
 @Field static String PARENT_DEVICE_NAME_PREFIX     = "HB BPA SPA Parent"
 @Field static final String VALID_SPA_STATUS_BYTE   = "2e"
@@ -55,7 +55,7 @@ Boolean isInstalled() {
 }
 
 void initVariableDefaults() {
-    //    setLogLevel("Debug", "30 Minutes")
+    setLogLevel("Debug", "30 Minutes")
     state.refreshNumber = 0
     if (state?.isPaused==null) atomicState.isPaused=false
     // Set isPaused state to false for the first time
@@ -79,24 +79,32 @@ void initVariableDefaults() {
 
 def deleteOldDevices() {
     def childDev = getChildDevice(state.spa["deviceId"])
-    def count = childDev.deleteOldChildDevices("check")
-    log.debug "deleteOldDevices(): child count to delete= ${count}"
-    return count
+    if (childDev) {
+	    def count = childDev.deleteOldChildDevices("check")
+    	log.debug "deleteOldDevices(): child count to delete= ${count}"
+    	return count
+    }
 }
 
 def verifyChildrenDevices() {
     def msg = ""
     logTrace "deviceTypeNameValidate()"
-    def childDev = getChildDevice(state.spa["deviceId"])
-    def retMap = childDev.verifyChildrenDevicesMethod(true)
-    logTrace "deviceTypeNameValidate() retMap = ${retMap}"
-    if (retMap) {
-        msg +="<table cellspacing='1' cellpadding='5' width='auto' height='auto' border='1'><tr><th align='center'>'Device Name/Label'</th><th align='center'>'Device Driver Name'</th><th align='center'>'Driver Verification Results'</th></tr>"
-        retMap.sort().each { key, value ->
-            msg += "<tr><td>${key}</td><td>${value.typeName}</td><td>${value.status}</td></tr>"
+    try {
+        def childDev = getChildDevice(state?.spa["deviceId"])
+        if (childDev) {
+            def retMap = childDev.verifyChildrenDevicesMethod(true)
+            logTrace "deviceTypeNameValidate() retMap = ${retMap}"
+            if (retMap) {
+                msg +="<table cellspacing='1' cellpadding='5' width='auto' height='auto' border='1'><tr><th align='center'>'Device Name/Label'</th><th align='center'>'Device Driver Name'</th><th align='center'>'Driver Verification Results'</th></tr>"
+                retMap.sort().each { key, value ->
+                    msg += "<tr><td>${key}</td><td>${value.typeName}</td><td>${value.status}</td></tr>"
+                }
+                msg +="</table>"
+                logTrace "msg= ${msg}"
+            }
         }
-        msg +="</table>"
-        logTrace "msg= ${msg}"
+    } catch (Exception e) {
+        logWarn "Critical State variables are missing, Resetting BWA and you must re-authenticate"
     }
     return msg
 }
@@ -104,9 +112,11 @@ def verifyChildrenDevices() {
 def statusOffline(errorMessage="BWA Cloud Server Unreachable") {
     updateLabel("Offline")
     def d = getChildDevice(state.spa["deviceId"])
-	d.sendEvent(name: "online", value: "Offline")
-    d.sendEvent(name: "spaStatus", value: UNKNOWN)
-    d.sendEvent(name: "cloudStatus", value: "${errorMessage}")
+    if (d) {
+		d.sendEvent(name: "online", value: "Offline")
+    	d.sendEvent(name: "spaStatus", value: UNKNOWN)
+    	d.sendEvent(name: "cloudStatus", value: "${errorMessage}")
+    }
 }
 
 def mainPage() {
@@ -195,7 +205,9 @@ def appButtonHandler(String btn) {
         break
         case "DeleteOldDevices":
         def childDev = getChildDevice(state.spa["deviceId"])
-        childDev.deleteOldChildDevices(true)
+        if (childDev) {
+	        childDev.deleteOldChildDevices(true)
+        }
         break
         case 'RefreshConfig':
         break
@@ -338,22 +350,16 @@ boolean doLogin(){
             atomicState.loginResponse = "BWA Server/Gateway Timeout"
             updateLabel("Login Error - ${state.loginResponse}")
             atomicState.credentialStatus = getFormat("text-red","[Offline]")
-            atomicState.token = null
-            atomicState.spas = null
             break
         case 403:
             atomicState.loginResponse = "Access forbidden"
             updateLabel("Login Error - ${state.loginResponse}")
             atomicState.credentialStatus = getFormat("text-red","[Disconnected]")
-            atomicState.token = null
-            atomicState.spas = null
             break
         case 401:
             atomicState.loginResponse = resp.data.message
             updateLabel("Login Error - ${state.loginResponse}")
             atomicState.credentialStatus = getFormat("text-red","[Disconnected]")
-            atomicState.token = null
-            atomicState.spas = null
             break
         case 200:
             logInfo ("Successfully logged in.")
@@ -371,8 +377,6 @@ boolean doLogin(){
             atomicState.loginResponse = "Login unsuccessful"
             updateLabel("Disconnected")
             atomicState.credentialStatus = getFormat("text-red","[Disconnected]")
-            atomicState.token = null
-            atomicState.spas = null
             break
     }
 
