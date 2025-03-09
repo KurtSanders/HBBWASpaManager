@@ -95,7 +95,6 @@ definition(name: PARENT_DEVICE_NAME,
         command "setSpaToLocalTime"
         command "disconnect"
     	command "lights"
-		command "TestHotTubConnection"
 	}
 }
 
@@ -212,8 +211,8 @@ void off() {
     send(SET_SOAK_MODE)
 }
 
-void setHeatingSetpoint(setpoint) {
-    logDebug "==> setHeatingSetpoint(${setpoint})..."
+def updateThermostatSetpoints(setpoint) {
+    logInfo "==>updateThermostatSetpoints(${setpoint})"
     // Verify a valid temperature
 	def tempRange = device.currentValue("tempRange")
     if (setpoint >= TEMPERATURE_VALID_RANGES_F[tempRange][0] && setpoint <= TEMPERATURE_VALID_RANGES_F[tempRange][1]) {
@@ -223,6 +222,11 @@ void setHeatingSetpoint(setpoint) {
         logErr "Invalid setpoint temp ${setpoint}"
         return
     }
+}
+
+void setHeatingSetpoint(setpoint) {
+    logTrace "==> setHeatingSetpoint(), waiting 5 secs for more input to updateThermostatSetpoint to ${setpoint}..."
+    runIn(5, "updateThermostatSetpoints", [overwrite: true, data: setpoint])
 }
 
 def makeRequest(command, options, ok2send=false) {
@@ -272,74 +276,6 @@ void generateToggleHexStrings() {
 
 def parseUDP(message) {
     logDebug "==> message= ${message}"
-}
-
-def discoverBalboa(){
-	cmd = ''
- 	destPort = 30303
-	new hubitat.device.HubAction(cmd,
-              hubitat.device.Protocol.LAN,
-              [type: hubitat.device.HubAction.Type.LAN_TYPE_UDPCLIENT,
-              callback: parse,
-              parseWarning: true,
-              destinationPort: parse,
-              timeout:500])
-}
-
-
-// TESTING ROUTINES *********************************
-void TestHotTubConnection() {
-    parse('7E0B0ABF2E0A0001D00000B47E')
-    return
-    state.pumpConfiguration.findAll { k, v -> (state.pumpConfiguration[k].installed != true)}.each { k, v -> state.pumpConfiguration.remove(k)}
-    logDebug "${state.pumpConfiguration}"
-
-
-	return
-
-    device.currentStates.findAll{ it.name =~ /Pump[123456]/ }.eachWithIndex { item, index ->
-        logDebug "${index}→ ${item.name} = ${item.value}"
-    	}
-    return
-
-    TOGGLE_ITEM_HEX_CODE.each{key, hexCode ->
-        messageRequest = "07${CHANNEL}11${hexCode}00"
-        byte[] decodedByte = hubitat.helper.HexUtils.hexStringToByteArray(messageRequest)
-        def CRCByte = calculateChecksum(decodedByte)
-        messageRequest = "${MESSAGE_DELIMITER}${messageRequest}${CRCByte}${MESSAGE_DELIMITER}"
-        logDebug "@Field static final String ${key.toUpperCase()}_TOGGLE = '${messageRequest}'"
-    }
-    return
-    logDebug "Connecting..."
-    boolean rc = socket_connect()
-    logDebug "rc=${rc}...pauseExecution"
-    runIn(READ_WAIT_SECS,'socket_close')
-    return
-
-    send('NOTHING_TO_SEND')
-    return
-    logInfo "Sending Connect"
-    socket_connect()
-    logDebug 'pauseExecution'
-    runIn(READ_WAIT_SECS,'disconnect')
-
-	return
-
-    state.lastCRCByte = 0
-    logDebug "Starting socket_connect()"
-    if (!socket_connect()) return
-
-    def requestMessage = makeRequest('setTemperature', 92)
-    logDebug "==> requestMessage= ${requestMessage}"
-
-    try {
-        logInfo "Sending '${requestMessage}' to Spa"
-        interfaces.rawSocket.sendMessage(requestMessage)
-    } catch (e) {
-        logErr "Error sending data to device: $e"
-    }
-    logDebug 'pauseExecution'
-    runIn(READ_WAIT_SECS,'disconnect')
 }
 
 void cycleSpeed() {
