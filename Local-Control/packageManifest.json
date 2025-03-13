@@ -2,12 +2,12 @@
   "packageName": "BWA Spa Manager - Local Control",
   "author": "Kurt Sanders",
   "minimumHEVersion": "2.4.0",
-  "dateReleased": "2025-03-08",
-  "version": "0.0.2",
+  "dateReleased": "2025-03-13",
+  "version": "0.0.3",
   "documentationLink": "https://github.com/KurtSanders/HBBWASpaManager/blob/master/README.md",
   "communityLink": "https://community.hubitat.com/t/release-hb-bwa-spamanager/128842",
   "licenseFile": "",
-  "releaseNotes": "Version 0.0.2\nREQUIRES HPM v1.9.3 or higher for HPM install or update.\n1. Hubitat Device driver only required to direct connect locally to the SPA Balboa WiFi module.\n\n2. Requires assigning a static TCP address to your SPA WiFi controller.\n3.Added new attributes for status messages.",
+  "releaseNotes": "Version 0.0.3\n• REQUIRES HPM v1.9.3 or higher for HPM install or update.\n1. No App, just a Hubitat Parent device driver required to directly TCP connect to the SPA Balboa WiFi module bypassing BWA Cloud Server.\n2. The spa must be on the same network as the Hubitat hub.\n3. Must assign a static TCP address to the SPA WiFi controller.\n4. Added new device attributes for real-time spa status messages.\n5. New child device switches have been added, allowing the user to change Heat Mode, Temp Range, and Refresh from the Hubitat Dashboard.\n6. Added error logic to catch missing spa configuration data and attempt to connect to spa and generate it.",
   "bundles": [
     {
       "id": "2d904d10-35d6-4701-8fbf-7cd2e98722b9",
@@ -30,9 +30,17 @@
     {
       "id": "394c78e2-f309-4c59-bc82-46e47f80251b",
       "name": "Balboa Hot Tub Local Driver",
-      "version": "0.0.2",
+      "version": "0.0.3",
       "namespace": "kurtsanders",
       "location": "https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/refs/heads/master/Local-Control/Balboa%20Hot%20Tub%20Local%20Driver.groovy",
+      "required": true
+    },
+    {
+      "id": "8b1e7870-23b0-4116-a676-544120ca1736",
+      "name": "Balboa Hot Tub Local Child Switch",
+      "version": "0.0.3",
+      "namespace": "kurtsanders",
+      "location": "https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/refs/heads/master/Local-Control/Balboa%20Hot%20Tub%20Local%20Child%20Switch.groovy",
       "required": true
     }
   ]

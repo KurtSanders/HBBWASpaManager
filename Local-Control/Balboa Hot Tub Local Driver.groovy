@@ -47,6 +47,7 @@ definition(name: PARENT_DEVICE_NAME,
     	attribute 'Filter2Start', 'string'
     	attribute 'Filter2Duration', 'string'
         attribute "filterMode", "enum", ["off", "cycle 1", "cycle 2", "cycle 1 and 2"]
+        attribute "heatMode", "enum", HEATMODES
         attribute "heatingSetpoint", "number"
         attribute "is24HourTime", "enum", ["true","false"]
         attribute "isFilter2Active", "enum", ["true","false"]
@@ -65,7 +66,6 @@ definition(name: PARENT_DEVICE_NAME,
         attribute "Pump5", "enum", ["off","low", "high"]
         attribute "Pump6", "enum", ["off","low", "high"]
         attribute "Pumps", "enum", ["on","off"]
-        attribute "readyMode", "enum", READYMODES
         attribute "spaPanelHTML", "string"
         attribute "spaStatus", "string"
         attribute "spaSessionStatus", "string"
@@ -88,19 +88,21 @@ definition(name: PARENT_DEVICE_NAME,
         attribute "setSpeed", "enum", SUPPORTED_PUMP_SPEED_MODES
         attribute "supportedFanSpeeds", 'JSON_OBJECT'
 
-        command "setHeatingSetpoint", [[name:'Heating Setpoint* 55-104°F', 	type:'NUMBER', description:'Heating setpoint temperature from 55°F-104°F', range: "55..104"]]
-        command "setReadyMode"    	, [[name:"Set Ready Mode*",      		type:"ENUM", description:"Set Ready/Rest Mode of the Spa", constraints:READYMODES]]
-        command "setTempRange"    	, [[name:"Set Temp Range*",      		type:"ENUM", description:"Set Temperature Range of the Spa", constraints:TEMPRANGES]]
-        command "setSpeed"			, [[name:"Pump speed*", type:"ENUM", description:"Pump speed to set", constraints:SUPPORTED_PUMP_SPEED_MODES]]
-        command "setSpaToLocalTime"
+	    command "createAllChildrenSpaSwitchs"
         command "disconnect"
-    	command "lights"
+        command "setHeatingSetpoint"		, [[name:'Heating Setpoint 55-104°F*'	, type:'NUMBER', description:'Heating setpoint temperature from 55°F-104°F', range: "55..104"]]
+    	command "setLights"					, [[name:"Set Spa Lights On/Off*"		, type:"ENUM", description:"Set Spa Lights (On/Off)", constraints:LIGHTSMODES]]
+        command "setHeatMode"    			, [[name:"Set Heat Mode*"				, type:"ENUM", description:"Set Heat Mode (Ready/Rest)", constraints:HEATMODES]]
+        command "setSpaToLocalTime"
+        command "setSpeed"					, [[name:"Pump speed*"					, type:"ENUM", description:"Pump speed to set", constraints:SUPPORTED_PUMP_SPEED_MODES]]
+        command "setTempRange"    			, [[name:"Set Temp Range*"				, type:"ENUM", description:"Set Temperature Range of the Spa", constraints:TEMPRANGES]]
 	}
 }
 
 // Constants
 @Field static final String  PARENT_DEVICE_NAME   		= "Balboa Hot Tub Local Driver"
-@Field static final String  VERSION 					= "0.0.2"
+@Field static final String  CHILD_DEVICE_NAME_SWITCH  	= "Balboa Hot Tub Local Child Switch"
+@Field static final String  VERSION 					= "0.0.3"
 @Field static final String  FILENAME_CSS 				= "BalboaLocalPanelTable.css"
 @Field static final Integer READ_WAIT_SECS 				= 10
 
@@ -135,7 +137,7 @@ void installed() {
     sendEvent(name: "supportedThermostatFanModes", value: stmJSON, displayed: false, isStateChange: true)
     makeEvent("thermostatFanMode", "off")
     makeEvent("thermostatMode", "off")
-
+    createAllChildrenSpaSwitchs()
 }
 
 void updated() {
@@ -143,6 +145,22 @@ void updated() {
     if (ipaddress==null || ipaddress.isEmpty()) return
 
     checkLogLevel()  // Set Logging Objects
+
+    // Remove legacy state.pumpConfiguration, copy to state.spaConfiguration
+    if (state.pumpConfiguration) {
+    	state.spaConfiguration = state.pumpConfiguration
+    	state.remove('pumpConfiguration')
+    }
+
+    // Verify that we have a valid spa congiguration
+    if (!isSpaConfigOK()) {
+        logWarn "Warning: Auto-generating spa configuration..."
+        configure()
+    }
+    // Show the Spa Configuration
+    state.spaConfiguration.sort().each { key, value ->
+        logDebug "state.spaConfiguration: ${key}: = ${value}"
+    }
 
     // Configure device poll timer interval
     if (poll_interval) {
@@ -164,6 +182,44 @@ void updated() {
             	break
         }
     }
+    createAllChildrenSpaSwitchs()
+}
+
+def createAllChildrenSpaSwitchs() {
+
+    createChildren(true, CHILD_DEVICE_NAME_SWITCH, "Refresh Local Spa"      , [functionName: 'refresh'])
+    createChildren(true, CHILD_DEVICE_NAME_SWITCH, "Set Heat Mode to Ready" , [functionName: 'setHeatMode', parameter: "Ready"])
+    createChildren(true, CHILD_DEVICE_NAME_SWITCH, "Set Heat Mode to Rest"  , [functionName: 'setHeatMode', parameter: "Rest"])
+    createChildren(true, CHILD_DEVICE_NAME_SWITCH, "Set Temp Range to High" , [functionName: 'setTempRange', parameter: "High"])
+    createChildren(true, CHILD_DEVICE_NAME_SWITCH, "Set Temp Range to Low"  , [functionName: 'setTempRange', parameter: "Low"])
+}
+
+def createChildren(createIfDoesntExist, String type, String name, Map apiMap = null) {
+    String thisId = device.id
+    def childDeviceName = "${thisId}-${name}"
+    logTrace "childDeviceName: '${childDeviceName}"
+
+    def cd = getChildDevice(childDeviceName)
+    if (!cd && createIfDoesntExist) {
+
+        logInfo "Adding Child Device Driver: ${type}, Name: '${childDeviceName}' with apiMap: ${apiMap}"
+        cd = addChildDevice(NAMESPACE, type, childDeviceName, [name: "${device.displayName} - ${name}", label: "${name}", isComponent: false])
+    }
+    // child devices will create a state.apiMap variable
+    if (apiMap) {
+        cd.setApiMap(apiMap)
+    }
+    return cd
+}
+
+void childRunApi(device, apiMap) {
+    logInfo "Dynamic Function Call: '${apiMap}' received from ${device} child device."
+    if (apiMap.parameter) {
+	    def cmd = this.&(apiMap.functionName)(apiMap.parameter)
+    } else {
+	    def cmd = this.&(apiMap.functionName)()
+    }
+    cmd
 }
 
 void setsupportedFanSpeeds() {
@@ -171,7 +227,7 @@ void setsupportedFanSpeeds() {
     sendEvent(name: "supportedFanSpeeds", value: modes, type:"digital", isStateChange: true, descriptionText:"Supported pump speeds initialized to ${SUPPORTED_PUMP_SPEED_MODES}")
 }
 
-void refresh() {
+void refresh(args=null) {
 	logTrace ("refresh()")
     send(NOTHING_TO_SEND)
 }
@@ -182,22 +238,81 @@ void configure() {
     send(GET_DEVICES)
 }
 
-void lights() {
-	logDebug ("lights()")
-    state.pumpConfiguration.findAll {it.key.startsWith('Light')}.each { outerKey, outerValue ->
-    	if (state.pumpConfiguration[outerKey].installed) {
-            logDebug "Toggle ${outerKey}: Send " +  this."SET_${outerKey.toUpperCase()}"
-            send(this."SET_${outerKey.toUpperCase()}")
-            pauseExecution(1000)
-    	}
-	}
+boolean isSpaConfigOK() {
+	def exists = (state.spaConfiguration && !state.spaConfiguration.empty)
+    if (!exists) logErr "Configuration Error: state.spaConfiguration is missing"
+    return exists
+}
 
+def setTempRange(mode=null) {
+    logDebug "setTempRange(${mode})..."
+    mode = mode.toLowerCase()
+
+    if (!['low','high'].contains(mode)) {
+        logErr "Invalid Temp Range '${mode}'.. Exiting"
+        return false
+    }
+
+    if (!isSpaConfigOK()) configure()
+    else refresh() // Get Latest Spa Accessory States
+
+    def tempRangeCurrent = device.currentValue("tempRange").toLowerCase()
+    logDebug "Device current heating mode is ${tempRangeCurrent.capitalize()}"
+    if (tempRangeCurrent != mode) {
+        logDebug "Setting New TempRange to '${mode.capitalize()}'"
+		send(SET_TEMP_RANGE)
+    } else {
+       logErr "Spa is already in '${mode.capitalize()}' mode, command ignored"
+    }
+}
+
+def setHeatMode(mode=null) {
+    logDebug "setHeatMode(${mode})"
+    mode = mode.toLowerCase()
+
+    if (!['ready','rest'].contains(mode)) {
+        logErr "Invalid Heat Mode '${mode}'.. Exiting"
+        return false
+    }
+
+    if (!isSpaConfigOK()) configure()
+    else refresh() // Get Latest Spa Accessory States
+
+    def currentHeatMode = device.currentValue("heatMode")
+    logDebug "Device current mode is ${heatMode}"
+
+    if (heatMode != mode) {
+        send(SET_HEAT_MODE)
+        logDebug "Setting new heatMode to '${mode}'"
+    } else {
+        logErr "Error: Spa is already in '${heatMode}' mode, command ignored"
+    }
+}
+
+void setLights(mode) {
+    logDebug ("setLights(${mode})")
+    if (!isSpaConfigOK()) configure()
+    else refresh() // Get Latest Spa Accessory States
+    if (mode) {
+        state.spaConfiguration.findAll {it.key.startsWith('Light')}.each { outerKey, outerValue ->
+            if (state.spaConfiguration[outerKey].installed) {
+                logInfo "Checking spa state of '${outerKey}'"
+                if (device.currentValue(outerKey) != mode) {
+                    logInfo "Setting '${outerKey}' to ${mode}"
+                    logDebug "Toggle ${outerKey}: Send " +  this."SET_${outerKey.toUpperCase()}"
+                    send(this."SET_${outerKey.toUpperCase()}")
+                    pauseExecution(500)
+                } else logInfo "Set Lights ${mode}: Skipping ${outerKey}, already '${device.currentValue(outerKey)}'"
+            }
+        }
+    }
 }
 
 void on() {
 	logDebug ("Switch: on()")
-    state.pumpConfiguration.findAll {it.key =~ /Pump[123456]/}.each { outerKey, outerValue ->
-    	if (state.pumpConfiguration[outerKey].installed) {
+    if (!isSpaConfigOK()) configure()
+    state.spaConfiguration.findAll {it.key =~ /Pump[123456]/}.each { outerKey, outerValue ->
+    	if (state.spaConfiguration[outerKey].installed) {
             logDebug "Toggle ${outerKey}: Send " +  this."SET_${outerKey.toUpperCase()}"
   			send(this."SET_${outerKey.toUpperCase()}")
             pauseExecution(1000)
@@ -401,40 +516,6 @@ void setSpaToLocalTime() {
     logTrace "==> setSpaToLocalTime() rc= ${rc}"
 }
 
-def setReadyMode(text_mode) {
-    logDebug "In parent setReadyMode..."
-    def ReadyMode = device.currentValue("readyMode")
-    logDebug "Device current mode is ${ReadyMode}"
-    if (!text_mode) {
-        text_mode = ReadyMode == "Ready" ? "Rest" : "Ready"
-    }
-    if (ReadyMode != text_mode) {
-        send(SET_HEAT_MODE)
-        logDebug "Setting new ReadyMode to '${text_mode}'"
-    } else {
-        logErr "Spa is already in '${ReadyMode}' mode, command ignored"
-    }
-}
-
-def setTempRange(arg='high') {
-    arg = arg.toLowerCase()
-    logDebug "setTempRange(${arg})..."
-
-    if (!['low','high'].contains(arg)) {
-        logErr "Invalid Temp Range '${arg}'.. Exiting"
-        return false
-    }
-
-    def tempRangeCurrent = device.currentValue("tempRange").toLowerCase()
-    logDebug "Device current heating mode is ${tempRangeCurrent}"
-    if (tempRangeCurrent != arg) {
-        logDebug "Setting New TempRange to '${arg.capitalize()}'"
-		send(SET_TEMP_RANGE)
-    } else {
-       logErr "Spa is already in '${arg.capitalize()}' mode, command ignored"
-    }
-}
-
 // Filter Cycle Response
 def parseFilterResponse(hexData) {
     logDebug ("parseFilterResponse: '${hexData}'")
@@ -492,6 +573,8 @@ def parseWiFiModuleConfigurationResponse(hexData) {
 
 def parsePanelData(hexData) {
     logDebug "parsePanelData(${hexData})"
+    if (!isSpaConfigOK()) configure()
+
     byte[] decoded = hubitat.helper.HexUtils.hexStringToByteArray(hexData)
     Map decodedMap = [:]
     decoded.eachWithIndex{ hexnum, idx ->
@@ -582,8 +665,8 @@ def parsePanelData(hexData) {
     // Spa Pumps
     def pumpState0 // Circulation Pump
     def accessory = 'Pump0'
-    if(state.pumpConfiguration.containsKey(accessory)) {
-        if (state.pumpConfiguration[accessory].installed) {
+    if(state.spaConfiguration.containsKey(accessory)) {
+        if (state.spaConfiguration[accessory].installed) {
             switch (decoded[13] & 2) { // Pump 0
                 case 2:
                 pumpState0 = "Active"
@@ -597,8 +680,8 @@ def parsePanelData(hexData) {
 
     def pumpState1
     accessory = 'Pump1'
-    if(state.pumpConfiguration.containsKey(accessory)) {
-        if (state.pumpConfiguration[accessory].installed) {
+    if(state.spaConfiguration.containsKey(accessory)) {
+        if (state.spaConfiguration[accessory].installed) {
             switch (decoded[11] & 3) { // Pump 1
                 case 1:
                 pumpState1 = "Low"
@@ -615,8 +698,8 @@ def parsePanelData(hexData) {
 
     def pumpState2
     accessory = 'Pump2'
-    if(state.pumpConfiguration.containsKey(accessory)) {
-        if (state.pumpConfiguration[accessory].installed) {
+    if(state.spaConfiguration.containsKey(accessory)) {
+        if (state.spaConfiguration[accessory].installed) {
             switch (decoded[11] & 12) { // Pump 2
                 case 4:
                 pumpState2 = "Low"
@@ -633,8 +716,8 @@ def parsePanelData(hexData) {
 
     def pumpState3
     accessory = 'Pump3'
-    if(state.pumpConfiguration.containsKey(accessory)) {
-        if (state.pumpConfiguration[accessory].installed) {
+    if(state.spaConfiguration.containsKey(accessory)) {
+        if (state.spaConfiguration[accessory].installed) {
             switch (decoded[11] & 48) { // Pump 3
                 case 16:
                 pumpState3 = "Low"
@@ -651,8 +734,8 @@ def parsePanelData(hexData) {
 
     def pumpState4
     accessory = 'Pump4'
-    if(state.pumpConfiguration.containsKey(accessory)) {
-        if (state.pumpConfiguration[accessory].installed) {
+    if(state.spaConfiguration.containsKey(accessory)) {
+        if (state.spaConfiguration[accessory].installed) {
             switch (decoded[11] & 192) { // Pump 4
                 case 64:
                 pumpState4 = "Low"
@@ -669,8 +752,8 @@ def parsePanelData(hexData) {
 
     def pumpState5
     accessory = 'Pump5'
-    if(state.pumpConfiguration.containsKey(accessory)) {
-        if (state.pumpConfiguration[accessory].installed) {
+    if(state.spaConfiguration.containsKey(accessory)) {
+        if (state.spaConfiguration[accessory].installed) {
             switch (decoded[12] & 3) {
                 case 1:
                 pumpState5 = "Low"
@@ -687,8 +770,8 @@ def parsePanelData(hexData) {
 
     def pumpState6
     accessory = 'Pump6'
-    if(state.pumpConfiguration.containsKey(accessory)) {
-        if (state.pumpConfiguration[accessory].installed) {
+    if(state.spaConfiguration.containsKey(accessory)) {
+        if (state.spaConfiguration[accessory].installed) {
         switch (decoded[12] & 12) {
                 case 4:
                 pumpState6 = "Low"
@@ -715,8 +798,8 @@ def parsePanelData(hexData) {
     // As far as I know, blower is not controllable, just report state in parent child device?
     def blowerState
     accessory = 'Blower'
-    if(state.pumpConfiguration.containsKey(accessory)) {
-        if (state.pumpConfiguration[accessory].installed) {
+    if(state.spaConfiguration.containsKey(accessory)) {
+        if (state.spaConfiguration[accessory].installed) {
             switch (decoded[17] & 12) {
                 case 4:
                 blowerState = "Low"
@@ -737,30 +820,30 @@ def parsePanelData(hexData) {
     // Lights
     def light1
     accessory = 'Light1'
-    if(state.pumpConfiguration.containsKey(accessory)) {
-        if (state.pumpConfiguration[accessory].installed) {
+    if(state.spaConfiguration.containsKey(accessory)) {
+        if (state.spaConfiguration[accessory].installed) {
 	        light1 = (((decoded[14] & 3) != 0)?'on':'off')
     	    makeEvent(accessory, light1)
         }
     }
     def light2
     accessory = 'Light2'
-    if(state.pumpConfiguration.containsKey(accessory)) {
-        if (state.pumpConfiguration[accessory].installed) {
+    if(state.spaConfiguration.containsKey(accessory)) {
+        if (state.spaConfiguration[accessory].installed) {
 	        light2 = (((decoded[14] & 12) != 0)?'on':'off')
     	    makeEvent(accessory, light2)
         }
     }
 
     if (light1 == 'on' || light2 == 'on') makeEvent(lights, 'on')
-    else makeEvent(lights, 'off')
+    else makeEvent('lights', 'off')
 
 
     // Mister
     def misterState
     accessory = 'Mister'
-    if(state.pumpConfiguration.containsKey(accessory)) {
-        if (state.pumpConfiguration[accessory].installed) {
+    if(state.spaConfiguration.containsKey(accessory)) {
+        if (state.spaConfiguration[accessory].installed) {
 	        misterState = ((decoded[15] & 1) != 0)
     	    makeEvent(accessory, misterState)
         }
@@ -809,7 +892,7 @@ def parsePanelData(hexData) {
     // Create events for the parent spa device
     def heatModeText = (isHeating?"${heatMode} heating to ${targetTemperature}°${temperatureScale}" : "${heatMode} not heating")
     makeEvent("spaStatus",                	"${heatModeText}" 	)
-    makeEvent("readyMode",                 	"${heatMode}"     	)
+    makeEvent("heatMode",                 	"${heatMode}"     	)
     makeEvent("tempRange",                 	"${heatingMode}"  	)
     makeEvent("updated_at",                	"${now}"			)
     makeEvent("online",                    	"online"			)
@@ -995,8 +1078,8 @@ def ParseDeviceConfigurationData(hexData) {
     } else device.deleteCurrentState(accessory)
 
     logDebug "==> pumpConfiguration Map= ${pumpConfiguration}"
-    state.pumpConfiguration = pumpConfiguration
-    logDebug "ParseDeviceConfigurationData() state.pumpConfiguration= ${state.pumpConfiguration}"
+    state.spaConfiguration = pumpConfiguration
+    logDebug "ParseDeviceConfigurationData() state.spaConfiguration= ${state.spaConfiguration}"
 }
 
 void makeEvent(name, value, units=null, description=null) {
@@ -1120,7 +1203,13 @@ def disconnect() {
 }
 
 boolean socket_close() {
-    logInfo  "Command complete at ${nowFormatted('MMM-dd h:mm:ss a')}"
+    if (device.currentValue("presence") == 'present') logInfo  "Command complete at ${nowFormatted('MMM-dd h:mm:ss a')}"
+    else {
+        def msg = "Command Error: The Spa is 'Offline' at ${nowFormatted('MMM-dd h:mm:ss a')}"
+        logInfo msg
+        makeEvent('TTSmessage', msg)
+    }
+
     boolean rc = false //default
 
 	try {

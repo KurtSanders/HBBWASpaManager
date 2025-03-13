@@ -10,7 +10,7 @@ library (
     name: "Balboa-Hot-Tub-API-Library",
     namespace: "kurtsanders",
     documentationLink: "https://github.com/KurtSanders/",
-    version: "0.0.2",
+    version: "0.0.3",
     disclaimer: "This library is only for use with SanderSoft Apps and Drivers."
 )
 
@@ -18,12 +18,13 @@ library (
 @Field static final String NAMESPACE            	= "kurtsanders"
 @Field static final String COMM_LINK            	= "https://community.hubitat.com/"
 @Field static final String GITHUB_LINK          	= "https://github.com/KurtSanders/HBBWASpaManager"
-@Field static final List ONOFF                  	= ["On", "Off"]
-@Field static final Map TEMP_REPORTING_DELTA    	= [(1):"± 1°",(2):"± 2°",(3):"± 3°",(4):"± 4°",(5):"± 5°",(10):"± 10°",(15):"± 15°"]
+@Field static final List   ONOFF                  	= ["On", "Off"]
+@Field static final Map    TEMP_REPORTING_DELTA    	= [(1):"± 1°",(2):"± 2°",(3):"± 3°",(4):"± 4°",(5):"± 5°",(10):"± 10°",(15):"± 15°"]
 @Field static final String UNKNOWN 					= "unknown"
-@Field static final List READYMODES 				= ["Ready", "Rest"]
-@Field static final List TEMPRANGES 				= ["High", "Low"]
-@Field static final int SOCKET_CONNECT_READ_DELAY 	= 150
+@Field static final List   HEATMODES 				= ["Ready", "Rest"]
+@Field static final List   TEMPRANGES 				= ["High", "Low"]
+@Field static final List   LIGHTSMODES 				= ["off", "on"]
+@Field static final int    SOCKET_CONNECT_READ_DELAY 	= 150
 @Field static final String MESSAGE_DELIMITER 		= '7E'
 @Field static final String CHANNEL 					= '0ABF'
 
@@ -417,14 +418,14 @@ def logMessage(String msg) {
 }
 
 void logErr(String msg) {
-    makeEvent("spaSessionStatus",msg)
+    if (device.typeName == PARENT_DEVICE_NAME) makeEvent("spaSessionStatus",msg)
     if (logLevelInfo.level>=1) log.error "${logMessage(msg)}"
 }
 void logWarn(String msg) {
     if (logLevelInfo.level>=2) log.warn "${logMessage(msg)}"
 }
 void logInfo(String msg) {
-    makeEvent("spaSessionStatus",msg)
+    if (device.typeName == PARENT_DEVICE_NAME) makeEvent("spaSessionStatus",msg)
     if (logLevelInfo.level>=3) log.info "${logMessage(msg)}"
 }
 void logDebug(String msg) {
