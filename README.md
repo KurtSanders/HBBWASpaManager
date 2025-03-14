@@ -26,7 +26,7 @@
 4. Control spa using Hubitat's Rules/WebCore
 
 #### Requirements
-- Spa equipped with a [Balboa Cloud Spa Controller](https://www.balboawatergroup.com/bwa)
+- Spa equipped with a [Balboa Cloud Spa Controller](https://www.balboawater.com/statuspro/)
 - [Hubitat Hub](https://hubitat.com/)
 - [Hubitat Package Manager](https://hubitatpackagemanager.hubitatcommunity.com/)
 
