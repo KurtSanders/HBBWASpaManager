@@ -1,6 +1,10 @@
 # HB BWA SpaManager (Cloud Control & Direct Local TCP)
 <img src="https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/master/images/hot-tub.png" width="50"> (forked from [richardpowellus/HBBWASpaManager](https://github.com/richardpowellus/HBBWASpaManager)
 
+### Version Notes
+
+* [Change-log & Version Release Features](https://github.com/KurtSanders/HBBWASpaManager/wiki/Features-by-Version)
+
 <img src="https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/master/images/Cloud-Local-Connection-Image.jpg">
 
 ---
@@ -30,7 +34,7 @@
 #### Cloud Control (Uses BWA's cloud server)
 
 1. Connect the spa to using these steps: 
-	* [BWA Cloud Spa Controller](https://www.balboawatergroup.com/getdoc.cfm?id=1623)
+	* [BWA Cloud Spa Controller](https://www.hottuboutpost.com/bwa-wifi-module-for-balboa-bp-series-spa-packs-iphone-android-app-50350/)
 	* Create userid and password and verify BWA Cloud connectivity using *BWA Spa Control iOS/Android App*
 2. Install Hubitat Package Manager (HPM) on your Hubitat Hub: 
 	* [HPM Install Documentation](https://hubitatpackagemanager.hubitatcommunity.com/)
@@ -47,7 +51,3 @@
 4. Select 'Balboa Hot Tub Local Driver'
 5. Name the created device and input your spa's static ip address in the device's preferences. 
 6. Select 'Refresh' in the device command section to populate your hot tub's various sensor states.
-
-### Version Notes
-
-* [Change-log & Version Release Features](https://github.com/KurtSanders/HBBWASpaManager/wiki/Features-by-Version)
