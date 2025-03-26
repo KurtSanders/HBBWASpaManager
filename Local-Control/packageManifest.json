@@ -2,18 +2,18 @@
   "packageName": "BWA Spa Manager - Local Control",
   "author": "Kurt Sanders",
   "minimumHEVersion": "2.4.0",
-  "dateReleased": "2025-03-25",
+  "dateReleased": "2025-03-26",
   "documentationLink": "https://github.com/KurtSanders/HBBWASpaManager/blob/master/README.md",
   "communityLink": "https://community.hubitat.com/t/release-hb-bwa-spamanager/128842",
   "licenseFile": "",
-  "releaseNotes": "Version 0.0.3\n• REQUIRES HPM v1.9.3 or higher for HPM install or update.\n1. No App, just a Hubitat Parent device driver required to directly TCP connect to the SPA Balboa WiFi module bypassing BWA Cloud Server.\n2. The spa must be on the same network as the Hubitat hub.\n3. Must assign a static TCP address to the SPA WiFi controller.\n4. Added new device attributes for real-time spa status messages.\n5. New child device switches have been added, allowing the user to change Heat Mode, Temp Range, and Refresh from the Hubitat Dashboard.\n6. Added error logic to catch missing spa configuration data and attempt to connect to spa and generate it.",
+  "releaseNotes": "Version 0.0.4\n• REQUIRES HPM v1.9.3 or higher for HPM install or update.\n1. No App, just a Hubitat Parent device driver required to directly TCP connect to the SPA Balboa WiFi module bypassing BWA Cloud Server.\n2. The spa must be on the same network as the Hubitat hub.\n3. Must assign a static TCP address to the SPA WiFi controller.\n4. Added new device attributes for real-time spa status messages.\n5. New child device switches have been added, allowing the user to change Heat Mode, Temp Range, and Refresh from the Hubitat Dashboard.\n6. Added error logic to catch missing spa configuration data and attempt to connect to spa and generate it.\n6.Added a new App to install all drivers and optionally rename the spa parent device driver.",
   "bundles": [
     {
       "id": "2d904d10-35d6-4701-8fbf-7cd2e98722b9",
       "name": "Balboa Hot Tub Bundle",
       "namespace": "kurtsanders",
-      "version": "0.0.2",
-      "location": "https://github.com/KurtSanders/HBBWASpaManager/raw/master/bundles/BalboaHotTubBundle.zip",
+      "version": "0.0.3",
+      "location": "https://github.com/KurtSanders/HBBWASpaManager/raw/refs/heads/master/bundles/BalboaHotTubBundle.zip",
       "required": true
     },
     {
@@ -23,6 +23,18 @@
       "version": "0.0.5",
       "location": "https://github.com/KurtSanders/HubitatPackages/raw/master/resources/bundles/SanderSoftBundle.zip",
       "required": true
+    }
+  ],
+    "apps": [
+    {
+      "id": "c261f6f0-6498-4655-892d-b74b2c78c434",
+      "name": "BWA Spa Manager App - Local",
+      "namespace": "kurtsanders",
+      "location": "https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/refs/heads/master/Local-Control/BWA%20Spa%20Manager%20App%20-%20Local.groovy",
+      "version": "0.0.1",
+      "required": true,
+      "primary": true,
+      "oauth": false
     }
   ],
   "drivers": [
