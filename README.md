@@ -51,3 +51,14 @@
 4. Select 'Balboa Hot Tub Local Driver'
 5. Name the created device and input your spa's static ip address in the device's preferences. 
 6. Select 'Refresh' in the device command section to populate your hot tub's various sensor states.
+
+### HPM Install/Upgrade FAQs:
+
+#### New Installs:
+* Install via HPM are highly recommended.  Search for **BWA Spa Manager** and select the **WA Spa Manager - Local App** version.
+
+#### Previous Versions of this App:
+* If you try to upgrade a previous version via HPM and notice that your hub has multiple versions of the device drivers or libraries listed below, use HPM to uninstall the app.
+* If HPM displays an error with removing this app, use HPM's '**Package Manager Settings**' option and then select ' **Un-Match a Package** to make HPM remove any of it's cached information of the previous versions of this app.   
+* Check the hub's drivers code and library code views for residual files listed below, If they exists, manually delete ALL/ANY of the application's drivers, app and libraries files that might still be installed.  This will allow HPM to install as a fresh new install.
+* Perform a new install via HPM.  Search for BWA Spa Manager and select the Local version to install.  HPM will automatically launch the Application and create the required spa control devices.
