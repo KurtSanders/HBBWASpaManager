@@ -10,13 +10,13 @@ library (
     name: "Balboa-Hot-Tub-API-Library",
     namespace: "kurtsanders",
     documentationLink: "https://github.com/KurtSanders/",
-    version: "0.0.3",
+    version: "0.0.4",
     disclaimer: "This library is only for use with SanderSoft Apps and Drivers."
 )
 
 @Field static final String AUTHOR_NAME          	= "Kurt Sanders"
 @Field static final String NAMESPACE            	= "kurtsanders"
-@Field static final String COMM_LINK            	= "https://community.hubitat.com/"
+@Field static final String COMM_LINK            	= "https://community.hubitat.com/t/release-bwa-spamanager-cloud-control-direct-local-tcp/151421"
 @Field static final String GITHUB_LINK          	= "https://github.com/KurtSanders/HBBWASpaManager"
 @Field static final List   ONOFF                  	= ["On", "Off"]
 @Field static final Map    TEMP_REPORTING_DELTA    	= [(1):"± 1°",(2):"± 2°",(3):"± 3°",(4):"± 4°",(5):"± 5°",(10):"± 10°",(15):"± 15°"]
@@ -78,7 +78,7 @@ library (
 ]
 
 @Field static final Map POLLING_OPTIONS         	= [
-    'off'  			   :'Off',
+    'off'  			   :'Off', 
     'runEvery1Minute'  :'Every 01 Minute',
     'runEvery5Minutes' :'Every 05 Minutes',
     'runEvery10Minutes':'Every 10 Minutes',
@@ -88,7 +88,7 @@ library (
     'runEvery3Hours'   :'Every 03 Hours'
     ]
 @Field static final Map BALBOA_MESSAGE_TYPES   		= [
-    '13':[
+    '13':[ 
     	'name' 		:'Status',
     	'color'		:'purple',
         'program'	:'parsePanelData'
@@ -133,7 +133,7 @@ String fmtHelpInfo(String str) {
     String prefLink = "<a href='${COMM_LINK}' target='_blank'>${str}<br><div style='font-size: 70%;'>${info}</div></a>"
     String topStyle = "style='font-size: 18px; padding: 1px 12px; border: 2px solid Crimson; border-radius: 6px;'" //SlateGray
     String topLink = "<a ${topStyle} href='${COMM_LINK}' target='_blank'>${str}<br><div style='font-size: 14px;'>${info}</div></a>"
-    if (device) {
+    if (device) {   
         return "<div style='font-size: 160%; font-style: bold; padding: 2px 0px; text-align: center;'>${prefLink}</div>" +
             "<div style='text-align: center; position: absolute; top: 30px; right: 60px; padding: 0px;'><ul class='nav'><li>${topLink}</ul></li></div>"
     } else {
@@ -142,20 +142,22 @@ String fmtHelpInfo(String str) {
     }
 }
 
-def createDataChildDevice(namespace, typeName, deviceNetworkId) {
+def createDataChildDevice(namespace, typeName, deviceNetworkId) {    
     logDebug "In createDataChildDevice()"
-    statusMessageD = ""
+    def statusMessageD = ""
+    def rc
     if(!getChildDevice(deviceNetworkId)) {
-        if(logEnable) log.debug "In createDataChildDevice - Child device not found - Creating device: ${dataName}"
+        logInfo "In createDataChildDevice - Child device not found - Creating device: ${typeName}"
         try {
-            addChildDevice(namespace, typeName, deviceNetworkId, ["name": "${typeName}", "label": "${typeName}", isComponent: false])
-            logDebug "In createDataChildDevice - Child device has been created! (${typeName})"
+            rc = addChildDevice(namespace, typeName, deviceNetworkId, ["name": "${typeName}", "label": "${typeName}", isComponent: false])
+            logInfo "In createDataChildDevice - Child device has been created! (${typeName})"
             statusMessageD = "<b>Device has been been created. (${typeName})</b>"
-        } catch (e) { logDErr "Unable to create device - ${e}" }
+        } catch (e) { logErr "Unable to create device - ${e}" }
     } else {
         statusMessageD = "<b>Device Name (${typeName}) already exists.</b>"
     }
-    return statusMessageD
+    logInfo "${statusMessageD}"
+    return rc
 }
 
 // Thanks to author: "Jean P. May Jr." for these following Hubitat local file access methods
@@ -169,7 +171,7 @@ HashMap securityLogin(){
 				[
 					uri: "http://127.0.0.1:8080",
 					path: "/login",
-					query:
+					query: 
 					[
 						loginRedirect: "/"
 					],
@@ -245,16 +247,16 @@ String readFile(fName){
 
     try {
         httpGet(params) { resp ->
-            if(resp!= null) {
+            if(resp!= null) {       
               // return resp.data
                int i = 0
                String delim = ""
-               i = resp.data.read()
+               i = resp.data.read() 
                while (i != -1){
                    char c = (char) i
                    delim+=c
-                   i = resp.data.read()
-               }
+                   i = resp.data.read() 
+               } 
                return delim
             }
             else {
@@ -274,7 +276,7 @@ Boolean appendFile(fName,newData){
         return writeFile(fName,fileData+newData)
     } catch (exception){
         if (exception.message == "Not Found"){
-            return writeFile(fName, newData)
+            return writeFile(fName, newData)      
         } else {
             log.error("Append $fName Exception: ${exception}")
             return false
@@ -284,7 +286,7 @@ Boolean appendFile(fName,newData){
 
 Boolean writeFile(String fName, String fData) {
     byte[] fDataB = fData.getBytes("UTF-8")
-    return writeImageFile(fName, fDataB, "text/html")
+    return writeImageFile(fName, fDataB, "text/html")   
 }
 
 Boolean xferFile(fileIn, fileOut) {
@@ -305,12 +307,12 @@ String readExtFile(fName){
             if(resp!= null) {
                int i = 0
                String delim = ""
-               i = resp.data.read()
+               i = resp.data.read() 
                while (i != -1){
                    char c = (char) i
                    delim+=c
-                   i = resp.data.read()
-               }
+                   i = resp.data.read() 
+               } 
                return delim
             }
             else {
@@ -323,9 +325,9 @@ String readExtFile(fName){
     }
 }
 
-HashMap readImage(imagePath){
+HashMap readImage(imagePath){   
     def imageData
-    if(security) cookie = securityLogin().cookie
+    if(security) cookie = securityLogin().cookie   
 
     if(debugEnabled) log.debug "Getting Image $imagePath"
     httpGet([
@@ -336,26 +338,26 @@ HashMap readImage(imagePath){
         ],
         textParser: false]){ response ->
             if(debugEnabled) log.debug "${response.properties}"
-            imageData = response.data
+            imageData = response.data 
             if(debugEnabled) log.debug "Image Size (${imageData.available()} ${response.headers['Content-Length']})"
 
             def bSize = imageData.available()
-            def imageType = response.contentType
+            def imageType = response.contentType 
             byte[] imageArr = new byte[bSize]
             imageData.read(imageArr, 0, bSize)
-            if(debugEnabled) log.debug "Image size: ${imageArr.length} Type:$imageType"
+            if(debugEnabled) log.debug "Image size: ${imageArr.length} Type:$imageType"  
             return [iContent: imageArr, iType: imageType]
-        }
+        }    
 }
 
 Boolean writeImageFile(String fName, byte[] fData, String imageType) {
     now = new Date()
     String encodedString = "thebearmay$now".bytes.encodeBase64().toString();
-    bDataTop = "--${encodedString}\r\nContent-Disposition: form-data; name=\"uploadFile\"; filename=\"${fName}\"\r\nContent-Type:${imageType}\r\n\r\n"
+    bDataTop = "--${encodedString}\r\nContent-Disposition: form-data; name=\"uploadFile\"; filename=\"${fName}\"\r\nContent-Type:${imageType}\r\n\r\n" 
     bDataBot = "\r\n\r\n--${encodedString}\r\nContent-Disposition: form-data; name=\"folder\"\r\n\r\n--${encodedString}--"
     byte[] bDataTopArr = bDataTop.getBytes("UTF-8")
     byte[] bDataBotArr = bDataBot.getBytes("UTF-8")
-
+    
     ByteArrayOutputStream bDataOutputStream = new ByteArrayOutputStream();
 
     bDataOutputStream.write(bDataTopArr);
@@ -364,7 +366,7 @@ Boolean writeImageFile(String fName, byte[] fData, String imageType) {
 
     byte[] postBody = bDataOutputStream.toByteArray();
 
-
+    
 try {
 		def params = [
 			uri: 'http://127.0.0.1:8080',
@@ -375,14 +377,14 @@ try {
             requestContentType: "application/octet-stream",
 			headers: [
 				'Content-Type': "multipart/form-data; boundary=$encodedString"
-			],
+			], 
             body: postBody,
 			timeout: 300,
 			ignoreSSLIssues: true
 		]
 		httpPost(params) { resp ->
             if(debugEnabled) log.debug "writeImageFile ${resp.properties}"
-            logTrace resp.data.status
+            logTrace resp.data.status 
             return resp.data.success
 		}
 	}
@@ -418,14 +420,14 @@ def logMessage(String msg) {
 }
 
 void logErr(String msg) {
-    if (device.typeName == PARENT_DEVICE_NAME) makeEvent("spaSessionStatus",msg)
+    if (!app && device.typeName == PARENT_DEVICE_NAME) makeEvent("spaSessionStatus",msg)
     if (logLevelInfo.level>=1) log.error "${logMessage(msg)}"
 }
 void logWarn(String msg) {
     if (logLevelInfo.level>=2) log.warn "${logMessage(msg)}"
 }
 void logInfo(String msg) {
-    if (device.typeName == PARENT_DEVICE_NAME) makeEvent("spaSessionStatus",msg)
+    if (!app && device.typeName == PARENT_DEVICE_NAME) makeEvent("spaSessionStatus",msg)
     if (logLevelInfo.level>=3) log.info "${logMessage(msg)}"
 }
 void logDebug(String msg) {

@@ -102,13 +102,13 @@ definition(name: PARENT_DEVICE_NAME,
 // Constants
 @Field static final String  PARENT_DEVICE_NAME   		= "Balboa Hot Tub Local Driver"
 @Field static final String  CHILD_DEVICE_NAME_SWITCH  	= "Balboa Hot Tub Local Child Switch"
-@Field static final String  VERSION 					= "0.0.3"
+@Field static final String  VERSION 					= "0.0.4"
 @Field static final String  FILENAME_CSS 				= "BalboaLocalPanelTable.css"
 @Field static final Integer READ_WAIT_SECS 				= 10
 
 preferences {
 	input "ipaddress", "text", title: "Device IP:", required: true,
-        description: "Balboa device local IP address. Tip: Configure a fixed IP address for your device on your network to make sure the IP does not change over time."
+        description: "Balboa device local IP address. Tip: Configure a fixed IP address for your spa on the same network as your Hubitat hub to make sure the spa's IP address does not change."
 
     input name: "poll_interval", type: "enum", title: "Configure device auto polling interval", defaultValue: 'Off', options: POLLING_OPTIONS,
         description: "Auto poll the panel status of the deivce. Select 'Off' to stop automatic polling."
