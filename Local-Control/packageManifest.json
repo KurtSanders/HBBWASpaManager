@@ -6,7 +6,7 @@
   "documentationLink": "https://github.com/KurtSanders/HBBWASpaManager/blob/master/README.md",
   "communityLink": "https://community.hubitat.com/t/release-new-bwa-spa-manager-cloud-control-direct-local-tcp/151421",
   "licenseFile": "",
-  "releaseNotes": "Version 0.1.0\n• REQUIRES HPM v1.9.3 or higher for HPM install or update.\n1.New driver feature for setting and handling temperature scales.\n2. Added new formatted temperature attributes with a suffix of current temperature scale.\n3. Added new advance device parameters for spa communications.",
+  "releaseNotes": "Version 0.1.0\n• REQUIRES HPM v1.9.3 or higher for HPM install or update.\n1. New driver feature for setting and handling temperature scales.\n2. Added new formatted temperature attributes with a suffix of current temperature scale.\n3. Added new advance device parameters for spa communications.",
   "bundles": [
     {
       "id": "2d904d10-35d6-4701-8fbf-7cd2e98722b9",
