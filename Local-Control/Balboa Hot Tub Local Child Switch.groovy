@@ -21,7 +21,7 @@ import groovy.transform.Field
 
 @Field static String SWITCH_CHILD_DEVICE_NAME_PREFIX = "Balboa Hot Tub Local Child Switch"
 @Field static String PARENT_DEVICE_NAME = "Balboa Hot Tub Local Driver"
-@Field static final String VERSION = "0.0.3"
+@Field static final String VERSION = "1.0.0"
 
 metadata {
     definition (name: SWITCH_CHILD_DEVICE_NAME_PREFIX, namespace: NAMESPACE, author: "Kurt Sanders") {
