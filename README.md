@@ -26,16 +26,20 @@
 4. Control spa using Hubitat's Rules/WebCore
 
 #### Requirements
-- Spa equipped with a [Balboa Cloud Spa Controller](https://www.amazon.com/Balboa-Water-Group-50350-07-Systems/dp/B0C89NLVCW/ref=sr_1_1?crid=1FLAWP3J3MUQP&dib=eyJ2IjoiMSJ9.3Uf1IdmEfGQFHeyD_LYQy1uF3Q_OyGZBz-9T0A4Du4UCVRb6lTdEGwR7xncq7IuCGIXiwvQCwPgsaIpqDM-7DM1ou8GSc1Ty7NjgJeE18TUdmd6VyaX6pTE-2GSoZ1gmaMi-QrIgUkCU82tEL-V73f6_fI6VKiWVnqkTR0IPM-a_4QMUAOW5pYq8rjF1Ww-aAtIzgsY5vMTLSgMqY85mvgW0weQCd_LaMdWBO6b4XSc._fD5IJd7n4BqA4eBVjncSH3Np0lqbCB82zh4IUAXsws&dib_tag=se&keywords=balboa+spa+module&qid=1741981337&sprefix=balboa+spa+module%2Caps%2C129&sr=8-1)
+- Spa equipped with a one of the following:
+  - [Balboa Cloud Spa Controller](https://www.amazon.com/Balboa-Water-Group-50350-07-Systems/dp/B0C89NLVCW/ref=sr_1_1?crid=1FLAWP3J3MUQP&dib=eyJ2IjoiMSJ9.3Uf1IdmEfGQFHeyD_LYQy1uF3Q_OyGZBz-9T0A4Du4UCVRb6lTdEGwR7xncq7IuCGIXiwvQCwPgsaIpqDM-7DM1ou8GSc1Ty7NjgJeE18TUdmd6VyaX6pTE-2GSoZ1gmaMi-QrIgUkCU82tEL-V73f6_fI6VKiWVnqkTR0IPM-a_4QMUAOW5pYq8rjF1Ww-aAtIzgsY5vMTLSgMqY85mvgW0weQCd_LaMdWBO6b4XSc._fD5IJd7n4BqA4eBVjncSH3Np0lqbCB82zh4IUAXsws&dib_tag=se&keywords=balboa+spa+module&qid=1741981337&sprefix=balboa+spa+module%2Caps%2C129&sr=8-1)
+  - [Elfin EW11 RS485](https://community.hubitat.com/t/release-new-bwa-spa-manager-cloud-control-direct-local-tcp/151421#p-1363399-these-two-hubitat-applications-allow-one-to-connect-to-a-network-connected-spa-which-is-equipped-with-a-1) 
+      - The EW11 device is a better low-cost option, IMHO, is economical, stable, and configurable via the EW11 WebPage.
+      - Requires some basic technical expertise to install on the spa circuit board plug-n-play connector.
 - [Hubitat Hub](https://hubitat.com/)
 - [Hubitat Package Manager](https://hubitatpackagemanager.hubitatcommunity.com/)
 
 ### How to install BWA Spa Manager: (Select the desired connection type below)
 #### Cloud Control (Uses BWA's cloud server)
 
-1. Connect the spa to using these steps: 
+1. Connect the spa to use these steps: 
 	* [BWA Cloud Spa Controller](https://www.hottuboutpost.com/bwa-wifi-module-for-balboa-bp-series-spa-packs-iphone-android-app-50350/)
-	* Create userid and password and verify BWA Cloud connectivity using *BWA Spa Control iOS/Android App*
+	* Create a userid and password and verify BWA Cloud connectivity using *BWA Spa Control iOS/Android App*
 2. Install Hubitat Package Manager (HPM) on your Hubitat Hub: 
 	* [HPM Install Documentation](https://hubitatpackagemanager.hubitatcommunity.com/)
 3. Search HPM for * **BWA Spa Manager - Cloud Control**, Install and Configure the App
@@ -48,17 +52,17 @@
 2. Select Install and search for * **BWA Spa Manager - Local Control**
 3. Install the device and exit HPM
 3. Manually create a Virtual Device by selecting '+ Add device' in the Hubitat devices view.  
-4. Select 'Balboa Hot Tub Local Driver'
+4. Select 'Balboa Hot Tub Local Driver.'
 5. Name the created device and input your spa's static ip address in the device's preferences. 
 6. Select 'Refresh' in the device command section to populate your hot tub's various sensor states.
 
 ### HPM Install/Upgrade FAQs:
 
 #### New Installs:
-* Install via HPM are highly recommended.  Search for **BWA Spa Manager** and select the **WA Spa Manager - Local App** version.
+* Installing via HPM is highly recommended.  Search for **BWA Spa Manager** and select the **WA Spa Manager - Local App** version.
 
 #### Previous Versions of this App:
 * If you try to upgrade a previous version via HPM and notice that your hub has multiple versions of the device drivers or libraries listed below, use HPM to uninstall the app.
-* If HPM displays an error with removing this app, use HPM's '**Package Manager Settings**' option and then select ' **Un-Match a Package** to make HPM remove any of it's cached information of the previous versions of this app.   
-* Check the hub's drivers code and library code views for residual files listed below, If they exists, manually delete ALL/ANY of the application's drivers, app and libraries files that might still be installed.  This will allow HPM to install as a fresh new install.
+* If HPM displays an error with removing this app, use HPM's '**Package Manager Settings**' option and then select ' **Un-Match a Package** to make HPM remove any of its cached information of the previous versions of this app.   
+* Check the hub's driver code and library code views for residual files listed below. If they exist, manually delete ALL/ANY of the application's drivers, app, and library files that might still be installed.  This will allow HPM to install as a fresh new install.
 * Perform a new install via HPM.  Search for BWA Spa Manager and select the Local version to install.  HPM will automatically launch the Application and create the required spa control devices.
