@@ -22,6 +22,16 @@
 #include kurtsanders.SanderSoft-Library
 #include kurtsanders.Balboa-Hot-Tub-API-Library
 
+// Constants
+@Field static final String  PARENT_DEVICE_NAME   		= "Balboa Hot Tub Local Driver"
+@Field static final String  CHILD_DEVICE_NAME_SWITCH  	= "Balboa Hot Tub Local Child Switch"
+@Field static final String  VERSION 					= "0.1.0"
+@Field static final String  FILENAME_CSS 				= "BalboaLocalPanelTable.css"
+@Field static final Integer READ_WAIT_SECS 				= 15
+@Field static final Integer MAX_RESPONSE_MESSAGES		= 5
+@Field static final Integer MAX_RAW_MESSAGES			= 10
+@Field static final Integer SOCKET_CONNECT_READ_DELAY 	= 150
+
 metadata {
 definition(name: PARENT_DEVICE_NAME,
     	namespace: NAMESPACE,
@@ -33,12 +43,13 @@ definition(name: PARENT_DEVICE_NAME,
         capability "Refresh"
         capability "Sensor"
         capability "Switch"
-        capability "TemperatureMeasurement"
-        capability "ThermostatHeatingSetpoint"
-        capability "ThermostatSetpoint"
-    	capability "ContactSensor"
-    	capability "PresenceSensor"
-	    capability "FanControl"
+        capability "Temperature Measurement"
+        capability "Thermostat Heating Setpoint"
+        capability "Thermostat Setpoint"
+	    capability "Temperature Measurement"
+    	capability "Contact Sensor"
+    	capability "Presence Sensor"
+	    capability "Fan Control"
 
         attribute "Blower", "enum", ["off","low","medium","high"]
     	attribute 'Filter1Start', 'string'
@@ -48,6 +59,8 @@ definition(name: PARENT_DEVICE_NAME,
     	attribute 'Filter2Duration', 'string'
         attribute "filterMode", "enum", ["off", "cycle 1", "cycle 2", "cycle 1 and 2"]
         attribute "heatMode", "enum", HEATMODES
+        attribute "heatingSetpointFormatted", "string"
+        attribute "thermostatMode", "string"
         attribute "heatingSetpoint", "number"
         attribute "is24HourTime", "enum", ["true","false"]
         attribute "isFilter2Active", "enum", ["true","false"]
@@ -71,8 +84,9 @@ definition(name: PARENT_DEVICE_NAME,
         attribute "spaSessionStatus", "string"
         attribute "spaTime", "string"
         attribute "spaTimeLocalDeltaMins", "number"
-        attribute "temperature", "number"
         attribute "tempRange", "enum", TEMPRANGES
+    	attribute "temperatureScale", "string"
+    	attribute "temperatureFormatted", "string"
         attribute "TTSmessage", "string"
         attribute "updated_at", "string"
         attribute "wifiState", "enum", ["WiFi OK","WiFi Spa Not Communicating","WiFi Startup","WiFi Prime","WiFi Hold","WiFi Panel","WiFi Unnknown"]
@@ -90,38 +104,54 @@ definition(name: PARENT_DEVICE_NAME,
 
 	    command "createAllChildrenSpaSwitchs"
         command "disconnect"
-        command "setHeatingSetpoint"		, [[name:'Heating Setpoint 55-104°F*'	, type:'NUMBER', description:'Heating setpoint temperature from 55°F-104°F', range: "55..104"]]
-    	command "setLights"					, [[name:"Set Spa Lights On/Off*"		, type:"ENUM", description:"Set Spa Lights (On/Off)", constraints:LIGHTSMODES]]
-        command "setHeatMode"    			, [[name:"Set Heat Mode*"				, type:"ENUM", description:"Set Heat Mode (Ready/Rest)", constraints:HEATMODES]]
+        command "setHeatingSetpoint", [[name:'Heating Setpoint 55-104°F | 14-40°C*'	, 
+                                        type:'NUMBER', description:'Heating setpoint temperature from 55°F-104°F| 14-40°C', range: "14..104"]]
+    	command "setLights"			, [[name:"Set Spa Lights On/Off*"				, 
+                                        type:"ENUM", description:"Set Spa Lights (On/Off)", constraints:LIGHTSMODES]]
+        command "setHeatMode"    	, [[name:"Set Heat Mode*"					, 
+                                        type:"ENUM", description:"Set Heat Mode (Ready/Rest)", constraints:HEATMODES]]
         command "setSpaToLocalTime"
-        command "setSpeed"					, [[name:"Pump speed*"					, type:"ENUM", description:"Pump speed to set", constraints:SUPPORTED_PUMP_SPEED_MODES]]
-        command "setTempRange"    			, [[name:"Set Temp Range*"				, type:"ENUM", description:"Set Temperature Range of the Spa", constraints:TEMPRANGES]]
+        command "setSpeed"			, [[name:"Pump speed*"							, 
+                                        type:"ENUM", description:"Pump speed to set", constraints:SUPPORTED_PUMP_SPEED_MODES]]
+        command "setTempRange"   	, [[name:"Set Temp Range*"						, 
+                                        type:"ENUM", description:"Set Temperature Range of the Spa", constraints:TEMPRANGES]]
+        command "setTempScale"		, [[name:"Set Temp Scale*"						, 
+                                        type:"ENUM", description:"Set Temperature Scale °C|°F of the Spa", constraints:TEMPSCALES]]
 	}
 }
 
-// Constants
-@Field static final String  PARENT_DEVICE_NAME   		= "Balboa Hot Tub Local Driver"
-@Field static final String  CHILD_DEVICE_NAME_SWITCH  	= "Balboa Hot Tub Local Child Switch"
-@Field static final String  VERSION 					= "0.0.4"
-@Field static final String  FILENAME_CSS 				= "BalboaLocalPanelTable.css"
-@Field static final Integer READ_WAIT_SECS 				= 10
-
 preferences {
-	input "ipaddress", "text", title: "Device IP:", required: true,
-        description: "Balboa device local IP address. Tip: Configure a fixed IP address for your spa on the same network as your Hubitat hub to make sure the spa's IP address does not change."
+    section ("Required Inputs") {
+        input "ipaddress", "text", title: "Device IP:", required: true,
+            description: "Balboa device local IP address. Tip: Configure a fixed IP address for your spa on the same network as your Hubitat hub to make sure the spa's IP address does not change."
 
-    input name: "poll_interval", type: "enum", title: "Configure device auto polling interval", defaultValue: 'Off', options: POLLING_OPTIONS,
-        description: "Auto poll the panel status of the deivce. Select 'Off' to stop automatic polling."
-    input name: "spaPanelDisplay", type: "bool", defaultValue: 'false', title: fmtTitle("Create Spa Panel Table for Dashboard"),
-        description: fmtDesc("An HTML Matrix Table for HE dashboard")
+        input "port", "text", title: "Device IP Port:", required: true, defaultValue: '4257', description: "Balboa device IP Port address (Default 4257)."
 
-    //	Logging Levels & Help
-	input name: "logLevel", type: "enum", title: fmtTitle("Logging Level"),
-    	description: fmtDesc("Logs selected level and above"), defaultValue: 0, options: LOG_LEVELS
-	input name: "logLevelTime", type: "enum", title: fmtTitle("Logging Level Time"),
-    	description: fmtDesc("Time to enable Debug/Trace logging"),defaultValue: 0, options: LOG_TIMES
-    //  Display Help Link
-	input name: "helpInfo", type: "hidden", title: fmtHelpInfo("Community Link")
+        input name: "poll_interval", 		type: "enum", title: "Configure device auto polling interval", defaultValue: 'Off', options: POLLING_OPTIONS,
+            description: "Auto poll the panel status of the deivce. Select 'Off' to stop automatic polling.", required: true
+        input name: "spaPanelDisplay", 		type: "bool", defaultValue: 'false', title: fmtTitle("Create Spa Panel Table for Dashboard"),
+            description: fmtDesc("An HTML Matrix Table for HE dashboard"), required: true
+    }
+    section ("Advanced Driver Setttings") {
+        input name: "readWaitSecs", 	type: "number", defaultValue: READ_WAIT_SECS, title: fmtTitle("Advanced: Read Wait Time, secs"),
+            description: fmtDesc("Time to wait between successive reads"), required: true
+        input name: "maxResponsesMessages", 	type: "number", defaultValue: MAX_RESPONSE_MESSAGES, title: fmtTitle("Advanced: Maxium Response Messages to Process"),
+            description: fmtDesc("Maximum device responses to process"), required: true
+        input name: "maxRawMessages", 	type: "number", defaultValue: MAX_RAW_MESSAGES, title: fmtTitle("Advanced: Maximum Raw Messages"),
+            description: fmtDesc("Maximum raw messsages to process from the device"), required: true
+        input name: "socketConnectReadDelay", 	type: "number", defaultValue: SOCKET_CONNECT_READ_DELAY, title: fmtTitle("Advanced: Socket Connect Read Delay, MilliSecs"),
+            description: fmtDesc("Socket Connect Read Delay, MilliSecs"), required: true
+    }
+
+    section ("Logging") { 
+        //	Logging Levels & Help
+        input name: "logLevel", type: "enum", title: fmtTitle("Logging Level"),
+            description: fmtDesc("Logs selected level and above"), defaultValue: 0, options: LOG_LEVELS
+        input name: "logLevelTime", type: "enum", title: fmtTitle("Logging Level Time"),
+            description: fmtDesc("Time to enable Debug/Trace logging"),defaultValue: 0, options: LOG_TIMES
+        //  Display Help Link
+        input name: "helpInfo", type: "hidden", title: fmtHelpInfo("Community Link")
+    }
 }
 
 void installed() {
@@ -130,14 +160,34 @@ void installed() {
     device.updateSetting('poll_interval', [type: "enum", value: 'off'])
     logInfo "Setting Spa Thermo defaults..."
     setsupportedFanSpeeds()
+    updateSettings()
     makeEvent("switch", "off")
+    initialize()
+    createAllChildrenSpaSwitchs()
+}
+
+void updateSettings() {
+    if (readWaitSecs == null) 			device.updateSetting('readWaitSecs', [type: "number", value: READ_WAIT_SECS])
+    if (maxResponsesMessages == null) 	device.updateSetting('maxResponsesMessages', [type: "number", value: MAX_RESPONSE_MESSAGES])
+    if (maxRawMessages == null) 		device.updateSetting('maxRawMessages', [type: "number", value: MAX_RAW_MESSAGES])
+    if (socketConnectReadDelay == null) device.updateSetting('socketConnectReadDelay', [type: "number", value: SOCKET_CONNECT_READ_DELAY])
+    if (tempscale == null) 				device.updateSetting('tempscale', [type: "enum", value: TEMPSCALES])
+    if (state.temperatureScale == null) state.temperatureScale = "°F"
+    logInfo "readWaitSecs = ${readWaitSecs} seconds"
+    logInfo "maxResponsesMessages = ${maxResponsesMessages}"
+    logInfo "maxRawMessages = ${maxRawMessages}"
+    logInfo "socketConnectReadDelay = ${socketConnectReadDelay} milliSeconds"
+}
+
+void initialize() {
+    // Reset thermostat attribute states
     String stmJSON = new groovy.json.JsonBuilder(THERMO_STAT_MODES).toString()
     sendEvent(name: "supportedThermostatModes", value: stmJSON, displayed: false, isStateChange: true)
     stmJSON = new groovy.json.JsonBuilder(THERMO_STAT_FAN_MODES).toString()
     sendEvent(name: "supportedThermostatFanModes", value: stmJSON, displayed: false, isStateChange: true)
-    makeEvent("thermostatFanMode", "off")
-    makeEvent("thermostatMode", "off")
-    createAllChildrenSpaSwitchs()
+    makeEvent("thermostatFanMode", "auto")
+    makeEvent("thermostatMode", "heat")
+    updateSettings()
 }
 
 void updated() {
@@ -145,6 +195,7 @@ void updated() {
     if (ipaddress==null || ipaddress.isEmpty()) return
 
     checkLogLevel()  // Set Logging Objects
+    initialize() // Reset thermostat attribute states
 
     // Remove legacy state.pumpConfiguration, copy to state.spaConfiguration
     if (state.pumpConfiguration) {
@@ -187,11 +238,15 @@ void updated() {
 
 def createAllChildrenSpaSwitchs() {
 
-    createChildren(true, CHILD_DEVICE_NAME_SWITCH, "Refresh Local Spa"      , [functionName: 'refresh'])
-    createChildren(true, CHILD_DEVICE_NAME_SWITCH, "Set Heat Mode to Ready" , [functionName: 'setHeatMode', parameter: "Ready"])
-    createChildren(true, CHILD_DEVICE_NAME_SWITCH, "Set Heat Mode to Rest"  , [functionName: 'setHeatMode', parameter: "Rest"])
-    createChildren(true, CHILD_DEVICE_NAME_SWITCH, "Set Temp Range to High" , [functionName: 'setTempRange', parameter: "High"])
-    createChildren(true, CHILD_DEVICE_NAME_SWITCH, "Set Temp Range to Low"  , [functionName: 'setTempRange', parameter: "Low"])
+    createChildren(true, CHILD_DEVICE_NAME_SWITCH, "Refresh Local Spa"      , [functionName: 'refresh'		, parameter: "null"])
+    createChildren(true, CHILD_DEVICE_NAME_SWITCH, "Set Heat Mode to Ready" , [functionName: 'setHeatMode'	, parameter: "Ready"])
+    createChildren(true, CHILD_DEVICE_NAME_SWITCH, "Set Heat Mode to Rest"  , [functionName: 'setHeatMode'	, parameter: "Rest"])
+    createChildren(true, CHILD_DEVICE_NAME_SWITCH, "Set Temp Range to High" , [functionName: 'setTempRange'	, parameter: "High"])
+    createChildren(true, CHILD_DEVICE_NAME_SWITCH, "Set Temp Range to Low"  , [functionName: 'setTempRange'	, parameter: "Low"])
+    createChildren(true, CHILD_DEVICE_NAME_SWITCH, "Set Spa Pumps On"  		, [functionName: 'setPumps'		, parameter: "on"])
+    createChildren(true, CHILD_DEVICE_NAME_SWITCH, "Set Spa Pumps Off"  	, [functionName: 'setPumps'		, parameter: "off"])
+    createChildren(true, CHILD_DEVICE_NAME_SWITCH, "Set Spa Lights On" 		, [functionName: 'setLights'	, parameter: "on"])
+    createChildren(true, CHILD_DEVICE_NAME_SWITCH, "Set Spa Lights Off" 	, [functionName: 'setLights'	, parameter: "off"])
 }
 
 def createChildren(createIfDoesntExist, String type, String name, Map apiMap = null) {
@@ -205,7 +260,8 @@ def createChildren(createIfDoesntExist, String type, String name, Map apiMap = n
         logInfo "Adding Child Device Driver: ${type}, Name: '${childDeviceName}' with apiMap: ${apiMap}"
         cd = addChildDevice(NAMESPACE, type, childDeviceName, [name: "${device.displayName} - ${name}", label: "${name}", isComponent: false])
     }
-    // child devices will create a state.apiMap variable
+    // child devices will have a state.apiMap variable that is passed to the parent
+    // update the state.apiMap
     if (apiMap) {
         cd.setApiMap(apiMap)
     }
@@ -227,7 +283,7 @@ void setsupportedFanSpeeds() {
     sendEvent(name: "supportedFanSpeeds", value: modes, type:"digital", isStateChange: true, descriptionText:"Supported pump speeds initialized to ${SUPPORTED_PUMP_SPEED_MODES}")
 }
 
-void refresh(args=null) {
+void refresh(arg=null) {
 	logTrace ("refresh()")
     send(NOTHING_TO_SEND)
 }
@@ -266,6 +322,14 @@ def setTempRange(mode=null) {
     }
 }
 
+def setThermostatMode(thermostatmode) {
+    makeEvent("thermostatMode", thermostatmode)
+}
+
+def setThermostatFanMode(fanmode) {
+    makeEvent("thermostatFanMode", fanmode)
+}
+
 def setHeatMode(mode=null) {
     logDebug "setHeatMode(${mode})"
     mode = mode.toLowerCase()
@@ -289,21 +353,28 @@ def setHeatMode(mode=null) {
     }
 }
 
-void setLights(mode) {
+def setLights(mode=null) {
     logDebug ("setLights(${mode})")
+    
+    mode = mode.toLowerCase()
+    if (!['on','off'].contains(mode)) {
+        logErr "Invalid Light Mode '${mode}'.. Exiting"
+        return false
+    }
+    
     if (!isSpaConfigOK()) configure()
     else refresh() // Get Latest Spa Accessory States
-    if (mode) {
-        state.spaConfiguration.findAll {it.key.startsWith('Light')}.each { outerKey, outerValue ->
-            if (state.spaConfiguration[outerKey].installed) {
-                logInfo "Checking spa state of '${outerKey}'"
-                if (device.currentValue(outerKey) != mode) {
-                    logInfo "Setting '${outerKey}' to ${mode}"
-                    logDebug "Toggle ${outerKey}: Send " +  this."SET_${outerKey.toUpperCase()}"
-                    send(this."SET_${outerKey.toUpperCase()}")
-                    pauseExecution(500)
-                } else logInfo "Set Lights ${mode}: Skipping ${outerKey}, already '${device.currentValue(outerKey)}'"
-            }
+    pauseExecution(1000)
+
+    state.spaConfiguration.findAll {it.key.startsWith('Light')}.each { outerKey, outerValue ->
+        if (state.spaConfiguration[outerKey].installed) {
+            logInfo "Checking spa state of '${outerKey}'"
+            if (device.currentValue(outerKey) != mode) {
+                logInfo "Setting '${outerKey}' to ${mode}"
+                logDebug "Toggle ${outerKey}: Send " +  this."SET_${outerKey.toUpperCase()}"
+                send(this."SET_${outerKey.toUpperCase()}")
+                pauseExecution(500)
+            } else logInfo "Set Lights ${mode}: Skipping ${outerKey}, already '${device.currentValue(outerKey)}'"
         }
     }
 }
@@ -318,30 +389,52 @@ void on() {
             pauseExecution(1000)
     	}
 	}
+    setLights('on')
 }
 
 void off() {
 	logDebug ("Switch: off()")
     logDebug "Set Soak Mode"
     send(SET_SOAK_MODE)
+    setLights('off')
 }
 
 def updateThermostatSetpoints(setpoint) {
     logInfo "==>updateThermostatSetpoints(${setpoint})"
     // Verify a valid temperature
 	def tempRange = device.currentValue("tempRange")
-    if (setpoint >= TEMPERATURE_VALID_RANGES_F[tempRange][0] && setpoint <= TEMPERATURE_VALID_RANGES_F[tempRange][1]) {
-        logDebug "Valid Temp ${setpoint}"
-    	makeRequest("setTemperature", setpoint, true)
-    } else {
-        logErr "Invalid setpoint temp ${setpoint}"
-        return
-    }
+    boolean validTempBool = false
+
+    switch (state.temperatureScale) {
+    	case '°F':
+            if (setpoint >= TEMPERATURE_VALID_RANGES_F[tempRange][0] && setpoint <= TEMPERATURE_VALID_RANGES_F[tempRange][1]) validTempBool = true
+	        break
+    	case '°C':
+            if (setpoint >= (TEMPERATURE_VALID_RANGES_F[tempRange][0]/2) && setpoint <= (TEMPERATURE_VALID_RANGES_F[tempRange][1]/2)) validTempBool = true
+	        break
+        default:
+            break
+        }
+    if (validTempBool) {        
+        logDebug "setTemperature: Valid setpoint temperature ${setpoint}{state.temperatureScale}"
+        makeRequest("setTemperature", setpoint, true)
+        } else {
+            logErr "setTemperature: Invalid setpoint temperature: ${setpoint}{state.temperatureScale}"
+        }
 }
 
 void setHeatingSetpoint(setpoint) {
     logTrace "==> setHeatingSetpoint(), waiting 5 secs for more input to updateThermostatSetpoint to ${setpoint}..."
     runIn(5, "updateThermostatSetpoints", [overwrite: true, data: setpoint])
+}
+
+void setTempScale(tempscale) {
+    logInfo "Changing Spa Temperature Scale to ${tempscale}"
+    if (tempscale == '°C') {
+        send(SET_HEAT_SCALE_C )
+    } else {
+        send(SET_HEAT_SCALE_F )
+    }
 }
 
 def makeRequest(command, options, ok2send=false) {
@@ -387,10 +480,6 @@ void generateToggleHexStrings() {
         messageRequest = "${MESSAGE_DELIMITER}${messageRequest}${CRCByte}${MESSAGE_DELIMITER}"
         logDebug "\n@Field static final String GET_${key.toUpperCase()} = '${messageRequest}'"
     }
-}
-
-def parseUDP(message) {
-    logDebug "==> message= ${message}"
 }
 
 void cycleSpeed() {
@@ -439,50 +528,87 @@ void setSpeed(speedName) {
 //    parent?.sendCommand("Button", device.currentValue("balboaAPIButtonNumber"),buttonPresses)
 }
 
-
 // Process the raw hexstring message packets from the device
 def parse(String message) {
+    state.lastMessage = (state?.lastMessage)?:[:]
     message = message.toUpperCase()
-    logDebug "parse(${message})"
+    logDebug "parse() message = ${message}"
     String hexData
     byte[] decodedByte
     def cs
     String messageType
-    state.messageCount = (state?.messageCount)?state.messageCount + 1:1
-    if (state.messageCount > MAX_MESSAGES) {
-        logDebug "Auto closing device socket after ${state.messageCount} messages."
-        disconnect()
+    String CRCByte
+
+    // Check to make sure that the first byte starts with MESSAGE_DELIMITER
+    // Check for invalid 7E7E message packets and discard them
+    if (message ==~ /^${MESSAGE_DELIMITER}/) {
+        logTrace "This raw message is perfectly aligned starting at ${MESSAGE_DELIMITER}"
+    } else {
+        logTrace "Misaligned Raw Message: Re-aligning to ${MESSAGE_DELIMITER}"
+		message = (message =~ /^.*?${MESSAGE_DELIMITER}(${MESSAGE_DELIMITER}.*)/)[0][1]
+        logTrace "==> Here is the new aligned message= ${message}"
     }
+//	List<String> hexDataList = message.findAll(/${MESSAGE_DELIMITER}.*?${MESSAGE_DELIMITER}/).unique { a, b -> a <=> b } as String[]
 
-	List<String> hexDataList = message.findAll(/${MESSAGE_DELIMITER}.*?${MESSAGE_DELIMITER}/).unique { a, b -> a <=> b } as String[]
-    hexDataList.each {
-        // Check for invalid 7E7E message packets and discard them
-        if (it.length() < 5) return
+	def regex_pattern = /(?!${MESSAGE_DELIMITER}${MESSAGE_DELIMITER})${MESSAGE_DELIMITER}(.{6}(?:13|2E|23|24).*?)${MESSAGE_DELIMITER}/    
+    List<String> hexDataList = message.findAll(regex_pattern).unique { a, b -> a <=> b } as String[]
+    logDebug "==> Found ${hexDataList.size()} importatnt status responses"
 
-        // Redundant message check...
-        String CRCByte = it[-4..-3]
-        if (state?.lastCRCByte == CRCByte) {
-            logDebug "Message #:${state.messageCount} CRCByte ${CRCByte} is redundant and will be ignored!"
+    hexDataList.eachWithIndex { it, index ->
+        logDebug "Regex ${index+1}= '${it}'"
+        // Track Raw Message Count
+        state.rawMessageCount = (state?.rawMessageCount)?state.rawMessageCount + 1:1
+        // Runaway Raw Messages Loop Max Check
+        if (state.rawMessageCount > maxRawMessages) {
+            logWarn "Runaway Message Received Loop Check Exceded ${maxRawMessages} messages, exiting!"
+            disconnect()
             return
         }
-        try {
+        // Discard bad length packets
+        if (it.length() < 5) {
+            logWarn "Short response Message#: state.rawMessageCount '${it}' skipped"
+            return
+        }
+
+        try {        
+            // Redundant raw message CRC and message type check...
+            CRCByte 		= it[-4..-3]
+	        messageType  	= it[8..9]
+    	    logDebug "==> Raw message #${state.rawMessageCount}: ${BALBOA_MESSAGE_TYPES[messageType].name}"
+            
+            // Filter/Skip messages that we do not process
+            if (BALBOA_MESSAGE_TYPES[messageType].program) {
+                // Check how many response messages we have processed and disconnect if we over at the max_response_messages value
+                if (state.processedMessageCount > maxResponseMessages) {
+                    logDebug "Auto closing device socket after ${state.processedMessageCount} response messages."
+                    disconnect()
+                }
+                logDebug "Message#${state.rawMessageCount} Important:   ${BALBOA_MESSAGE_TYPES[messageType].name}"
+                // Increment number of response messsages that have a program to process        
+                state.processedMessageCount = state.processedMessageCount + 1
+            } else {
+                logDebug "Message#${state.rawMessageCount} Ignored: ${BALBOA_MESSAGE_TYPES[messageType].name} '${it}'"
+                return
+            }
+            
+            if (state.lastMessage[messageType] == CRCByte) {
+                logDebug "<span style=color:${BALBOA_MESSAGE_TYPES[messageType].color};>Message #:${state.rawMessageCount} CRCByte ${CRCByte} is redundant with previous ${messageType} message and will be ignored!</span>"
+                return
+            }
 	        // Validate message integrity usig CRC-8
 			hexData = it[2..-5]
         	decodedByte = hubitat.helper.HexUtils.hexStringToByteArray(hexData)
         	cs = calculateChecksum(decodedByte)
         	if (CRCByte == cs) {
-            	logTrace "Checksum Byte Verification Passed for Message #${state.messageCount} '${it}': ${CRCByte} <> ${cs}"
+            	logTrace "Checksum Byte Verification Passed for Message #${state.rawMessageCount} '${it}': ${CRCByte} <> ${cs}"
         	} else {
-            	logTrace "Checksum Byte Verification Failed for Message #${state.messageCount} '${it}': ${CRCByte} <> ${cs}.  Message #${state.messageCount} Ignored."
+            	logTrace "Checksum Byte Verification Failed for Message #${state.rawMessageCount} '${it}': ${CRCByte} <> ${cs}.  Message #${state.rawMessageCount} Ignored."
 				return
         	}
 	        // Let's process the message
-    	    state.lastCRCByte = CRCByte
-        	logDebug "Unprocessed hexData for message ${state.messageCount}: ${it}"
-	        messageType  	= it[8..9]
-    	    logDebug "==> messageType for message ${state.messageCount}: ${messageType}"
+        	logTrace "Unprocessed hexData for message ${state.rawMessageCount}: ${it}"
         	messagePacket	= it[10..-5]
-        	logTrace "==> messagePacket for message ${state.messageCount}: ${messagePacket}"
+        	logTrace "==> messagePacket for message ${state.rawMessageCount}: ${messagePacket}"
         } catch (java.lang.StringIndexOutOfBoundsException ex) {
             logErr "Error processing message packet: '${it}'"
             return
@@ -491,20 +617,24 @@ def parse(String message) {
             return
         }
 
+        // What type of messageType have we received
         if (BALBOA_MESSAGE_TYPES[messageType]) {
             makeEvent('spaSessionStatus', "<span style=color:yellow;>Received a ${BALBOA_MESSAGE_TYPES[messageType].name} response from spa</span>")
             logDebug "<span style=color:${BALBOA_MESSAGE_TYPES[messageType].color};>${BALBOA_MESSAGE_TYPES[messageType].name} Update: ${messagePacket}</span>"
         } else {
-            logErr "<span style=color:red;>Message type#: ${messageType} unknown: ${messagePacket}</span>"
+            logDebug "<span style=color:red;>Message type#: ${messageType} unknown: ${messagePacket}</span>"
             return
         }
+        // Let's count, record and process the message if we have a registered function
         if(BALBOA_MESSAGE_TYPES[messageType].program) {
+            // Record this CRCByte with the messageType in a state map
+            state.lastMessage[messageType] = "${CRCByte}"            
             logDebug "Calling ${BALBOA_MESSAGE_TYPES[messageType].name} Message Handler: ${BALBOA_MESSAGE_TYPES[messageType].program}"
 	        // Dynamically call the correct parsing program for the messagePacket hex number
             def messageHandler = this.&(BALBOA_MESSAGE_TYPES[messageType].program)
             messageHandler(messagePacket)
         } else {
-            logDebug "No Message Handler is defined for ${BALBOA_MESSAGE_TYPES[messageType].name} for message ${state.messageCount}: ${messagePacket}"
+            logDebug "No Message Handler is defined for ${BALBOA_MESSAGE_TYPES[messageType].name} for message ${state.processedMessageCount}: ${messagePacket}"
         }
     }
 }
@@ -614,11 +744,49 @@ def parsePanelData(hexData) {
         logTrace "durationMins= ${durationMins}"
         makeEvent("spaTimeLocalDeltaMins",durationMins.toInteger())
     }
-    def temperatureScale = (decoded[9] & 1) == 0 ? "F" : "C"
-    def actualTemperature = decoded[2]
-    def targetTemperature = decoded[20]
-    def isHeating = (decoded[10] & 44) != 0
+    String  temperatureScale  = (decoded[9] & 1) == 0 ? "°F" : "°C"
+    logDebug "==> temperatureScale= ${temperatureScale}"
+    Integer actualTemperature = decoded[2]
+    Integer targetTemperature = decoded[20]
+    
+    if (actualTemperature == 255) {
+        actualTemperature = device.currentValue("temperature") * (temperatureScale == "°C" ? 2.0F : 1)
+    }
+    if (temperatureScale == '°C') {
+        actualTemperature /= 2.0F
+        targetTemperature /= 2.0F
+    }
+    
+    // Set the thermostat mode & operting states for the spa and convert states to Hubitat attributes for thermostat     
+    def thermostatMode
+    def thermostatOperatingStatee
+    switch (true) {
+        case ((decoded[10] & 8) == 0): 
+        	thermostatMode = "heat"
+			thermostatOperatingState = "idle"
+        break
+        case ((decoded[10] & 8) == 8):
+        	thermostatMode = "heat"
+			thermostatOperatingState = "heating"
+        break
+        case ((decoded[10] & 16) == 16):
+        	thermostatMode = "heat"
+    		thermostatOperatingState = "pending heat"
+        break
+        default:
+	        logErr "==> Received an unexpected spa thermostatMode state: hexdecoded[10]= ${decoded[10]}"
+  	     	thermostatMode = "off"
+    		thermostatOperatingState = "idle"
+          break
+    }                       
+    makeEvent('thermostatMode', thermostatMode)
+    makeEvent('temperatureScale',temperatureScale)
+    makeEvent('thermostatOperatingState', thermostatOperatingState)
 
+    // Set a state variable to track temperature scale
+    state.temperatureScale = temperatureScale
+    
+    //heatingMode
     def heatingMode = (decoded[10] & 4) == 4 ? "high" : "low"
 
     def heatMode
@@ -637,13 +805,12 @@ def parsePanelData(hexData) {
     }
 
     if (actualTemperature > -1) {
-        makeEvent('temperature', actualTemperature, temperatureScale)
-        makeEvent('heatingSetpoint', targetTemperature, temperatureScale)
-        makeEvent('thermostatSetpoint', targetTemperature, temperatureScale)
+        makeEvent('temperature', actualTemperature, temperatureScale, 'actual spa temperature')
+        makeEvent('temperatureFormatted', "${actualTemperature}${temperatureScale}")
+        makeEvent('heatingSetpoint', targetTemperature, temperatureScale, 'target spa temperature')
+	    makeEvent('heatingSetpointFormatted', "${targetTemperature}${temperatureScale}")
+        makeEvent('thermostatSetpoint', targetTemperature, temperatureScale, 'target spa temperature')
     }
-    makeEvent('temperatureScale',temperatureScale)
-    makeEvent('thermostatMode', "heat")
-    makeEvent('thermostatOperatingState', isHeating ? "heating" : "idle")
 
     def filterMode
     switch (decoded[9] & 12) {
@@ -877,20 +1044,11 @@ def parsePanelData(hexData) {
     if (decoded[15] < 1 && decoded[16] < 1 && (decoded[17] & 3) < 1) {
         pumpStateStatus = "off"
     } else {
-        pumpStateStatus = isHeating ? "Low Heat" : "Low"
-    }
-
-    if (actualTemperature == 255) {
-        actualTemperature = device.currentValue("temperature") * (temperatureScale == "C" ? 2.0F : 1)
-    }
-
-    if (temperatureScale == "C") {
-        actualTemperature /= 2.0F
-        targetTemperature /= 2.0F
+        pumpStateStatus = thermostatMode
     }
 
     // Create events for the parent spa device
-    def heatModeText = (isHeating?"${heatMode} heating to ${targetTemperature}°${temperatureScale}" : "${heatMode} not heating")
+    def heatModeText = "${thermostatOperatingState} to ${targetTemperature}${temperatureScale}"
     makeEvent("spaStatus",                	"${heatModeText}" 	)
     makeEvent("heatMode",                 	"${heatMode}"     	)
     makeEvent("tempRange",                 	"${heatingMode}"  	)
@@ -909,7 +1067,7 @@ def parsePanelData(hexData) {
         "Light 1"                    : "${(light1)?:null}",
         "Light 2"                    : "${(light2)?:null}",
         "Heat Mode"                  : "${heatMode}",
-        "Is Heating"                 : "${(isHeating)?'Yes':'No'}",
+        "Heating State"              : "${thermostatOperatingState}",
         "Pump 0 (Circ)"              : "${(pumpState0)?:null}",
         "Pump 1"                     : "${(pumpState1)?:null}",
         "Pump 2"                     : "${(pumpState2)?:null}",
@@ -922,7 +1080,7 @@ def parsePanelData(hexData) {
         "Updated"                    : "${nowFormatted('h:mm:ss a')}"
     ]
 
-    makeEvent('TTSmessage', "Your spa is currently at ${actualTemperature}°${temperatureScale} and is ${heatModeText.uncapitalize()}.")
+    makeEvent('TTSmessage', "Your spa is currently at ${actualTemperature}${temperatureScale} and is ${heatModeText.uncapitalize()}.")
 
     if (spaPanelDisplay) makeSpaPanelTable(spaItems)
     return true
@@ -950,6 +1108,8 @@ void makeSpaPanelTable(data) {
             case 'high':
             case 'medium':
             case 'low':
+            case 'heat':
+            case 'heating':
             case 'on':
             case 'active':
             case 'Ready':
@@ -959,6 +1119,9 @@ void makeSpaPanelTable(data) {
             break
             case 'off':
             case 'false':
+            case 'idle':
+            case 'cool':
+            case 'cooling':
             case 'inactive':
             case 'No':
             value = "<td class=g>${value}</td>"
@@ -967,9 +1130,9 @@ void makeSpaPanelTable(data) {
                 // Highlight high and low temperatures
                 if (key.startsWith('Temp')) {
                     if (value.toInteger() >= 99) {
-                        value = "<td class=r>${value}°${temperatureScale}</td>"
+                        value = "<td class=r>${value}${state.temperatureScale}</td>"
                     } else {
-                        value = "<td class=b>${value}°${temperatureScale}</td>"
+                        value = "<td class=b>${value}${state.temperatureScale}</td>"
                     }
                 } else value = "<td>${value}</td>"
             break
@@ -1082,12 +1245,31 @@ def ParseDeviceConfigurationData(hexData) {
     logDebug "ParseDeviceConfigurationData() state.spaConfiguration= ${state.spaConfiguration}"
 }
 
-void makeEvent(name, value, units=null, description=null) {
-    def dataMap = ['name': name, 'value': value]
-    if (units) 			dataMap['units'] = units
-    if (description) 	dataMap['description']= description
-	sendEvent(dataMap)
-	logDebug "<span style='color:green'><b>sendEvent</b> ${name} = ${value}${units?:''} ${description?:''}</span>"
+def makeEvent(name, value) {
+    sendEvent(name : name, value : value)
+    Map data = [:]	
+    data['name'] 	= name
+    data['value'] 	= value
+	logTrace "<span style='color:green'><b>sendEvent(</b>${data})</span>"
+}
+
+def makeEvent(name, value, unit) {
+    sendEvent(name : name, value : value, unit : unit)
+    Map data = [:]	
+    data['name'] 	= name
+    data['value'] 	= value
+    data['unit'] 	= unit
+	logTrace "<span style='color:green'><b>sendEvent(</b>${data})</span>"
+}
+
+def makeEvent(name, value, unit, descriptionText) {
+    sendEvent( name : name, value : value, unit : unit, descriptionText : descriptionText)
+    Map data = [:]	
+    data['name'] 	= name
+    data['value'] 	= value
+	data['unit'] = unit
+    data['descriptionText'] = descriptionText
+	logTrace "<span style='color:green'><b>sendEvent(</b>${data})</span>"
 }
 
 def calculateChecksum(byte[] data) {
@@ -1123,7 +1305,7 @@ def calculateChecksum(byte[] data) {
 // Callback function used by HE to notify about socket changes
 // This has been reported to be buggy
 def socketStatus(String socketMessage) {
-    logErr "Socket status message received: ${socketMessage}"
+    logErr "Socket Status Message Received: ${socketMessage}"
 }
 
 // Wrapper for socket_connect
@@ -1139,18 +1321,21 @@ boolean socket_connect() {
         return true
     }
 
-    logDebug "Socket Connect(): ${settings.ipaddress} at port: 4257 for a delay reads of ${SOCKET_CONNECT_READ_DELAY} millisecs"
+    logDebug "Socket Connect(): ${settings.ipaddress} at port: ${port} for a delay reads of ${socketConnectReadDelay} millisecs"
 	boolean rc = false //default
     // Reset device message received counter to 0
-    state.messageCount = 0
+    state.processedMessageCount = 0
+    state.rawMessageCount = 0
 
     // Dead man fail safe in case we cannot close the socket via number of messages
-    logDebug "Reset auto closing device socket timer to ${READ_WAIT_SECS} secs"
-    runIn(READ_WAIT_SECS,'socket_close')
+    logDebug "Reset auto closing device socket timer to ${readWaitSecs} secs"
+    runIn(readWaitSecs,'socket_close')
+    
+    // Default port: 4257 for Spa WiFi 
 
 	try {
         logInfo "Attempting to connect to Spa device..."
-		interfaces.rawSocket.connect(settings.ipaddress, 4257, byteInterface: true, readDelay: SOCKET_CONNECT_READ_DELAY)
+		interfaces.rawSocket.connect(settings.ipaddress, port.toInteger(), byteInterface: true, readDelay: socketConnectReadDelay)
         rc = true
 	} catch (java.net.NoRouteToHostException ex) {
 		logErr "Error: No Route To Host - Can't connect to spa, make sure spa is on the network.  Exiting.."
@@ -1176,7 +1361,7 @@ def send(message) {
 }
 
 def socket_write(message) {
-    logDebug  "Socket: write - ${settings.ipaddress}:4257 → message:  ${message}"
+    logDebug  "Socket: write - ${settings.ipaddress}:${port} → message:  ${message}"
     boolean rc = false //default
     if (message==null || message == '') {
         logErr "socket_write(${message}): message argument is either null or empty, exiting..."
@@ -1185,8 +1370,8 @@ def socket_write(message) {
     // Open socket if closed
     if (device.currentValue("contact")=='closed') socket_connect()
 
-    logDebug "Reset auto closing socket timer to ${READ_WAIT_SECS} secs to send '${message}' to device"
-    runIn(READ_WAIT_SECS,'socket_close')
+    logDebug "Reset auto closing socket timer to ${readWaitSecs} secs to send '${message}' to device"
+    runIn(readWaitSecs,'socket_close')
 
     try {
 		interfaces.rawSocket.sendMessage(message)
@@ -1221,6 +1406,5 @@ boolean socket_close() {
         return rc
 	}
     makeEvent("contact", "closed")
-    state.messageCount = 0
     return rc
 }

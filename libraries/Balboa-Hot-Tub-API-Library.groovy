@@ -10,7 +10,7 @@ library (
     name: "Balboa-Hot-Tub-API-Library",
     namespace: "kurtsanders",
     documentationLink: "https://github.com/KurtSanders/",
-    version: "0.0.4",
+    version: "0.1.0",
     disclaimer: "This library is only for use with SanderSoft Apps and Drivers."
 )
 
@@ -22,12 +22,14 @@ library (
 @Field static final Map    TEMP_REPORTING_DELTA    	= [(1):"± 1°",(2):"± 2°",(3):"± 3°",(4):"± 4°",(5):"± 5°",(10):"± 10°",(15):"± 15°"]
 @Field static final String UNKNOWN 					= "unknown"
 @Field static final List   HEATMODES 				= ["Ready", "Rest"]
-@Field static final List   TEMPRANGES 				= ["High", "Low"]
+@Field static final List   TEMPRANGES 				= ["high", "low"]
+@Field static final List   TEMPSCALES 				= ["°F", "°C"]
 @Field static final List   LIGHTSMODES 				= ["off", "on"]
-@Field static final int    SOCKET_CONNECT_READ_DELAY 	= 150
 @Field static final String MESSAGE_DELIMITER 		= '7E'
 @Field static final String CHANNEL 					= '0ABF'
 
+@Field static final String SET_HEAT_SCALE_C			= '7E070ABF2701015F7E'
+@Field static final String SET_HEAT_SCALE_F			= '7E070ABF270100587E'
 @Field static final String SET_HEAT_MODE 			= '7E070ABF115100C87E'
 @Field static final String SET_TEMP_RANGE	 		= '7E070ABF115000DD7E'
 @Field static final String SET_SOAK_MODE 			= '7E070ABF111D006F7E'
@@ -52,10 +54,9 @@ library (
 @Field static final List SUPPORTED_PUMP_SPEED_MODES = ["off", "low", "high"]
 @Field static final List THERMO_STAT_OPERATING_STATES = ["heating", "idle", "pending heat"]
 @Field static       List SWITCH_DEVICES_OPTIONS		= ['Pump1','Pump2','Pump3','Pump4','Pump5','Pump6','Light1','Light2']
-@Field static final List THERMO_STAT_MODES 			= ["off","heat"]
-@Field static final List THERMO_STAT_FAN_MODES 		= ["off"]
-@Field static final Integer MAX_MESSAGES			= 6
-@Field static final Map TEMPERATURE_VALID_RANGES_F 	= [
+@Field static final List THERMO_STAT_MODES			= ["heat"]
+@Field static final List THERMO_STAT_FAN_MODES 		= ["auto"]
+@Field static final Map  TEMPERATURE_VALID_RANGES_F = [
         'low' : [50,80],
         'high': [80,104]
         ]
@@ -89,32 +90,44 @@ library (
     ]
 @Field static final Map BALBOA_MESSAGE_TYPES   		= [
     '13':[ 
-    	'name' 		:'Status',
+    	'name' 		:'Panel Status Update',
     	'color'		:'purple',
         'program'	:'parsePanelData'
     	],
     '2E':[
-        'name' 		:'Configuration',
+        'name' 		:'Spa Configuration',
     	'color'		:'brown',
         'program'	:'ParseDeviceConfigurationData'
+    	],
+    '23':[
+        'name' 		:'Filter Configuration Response',
+    	'color'		:'orange',
+        'program'	:'parseFilterResponse'
+    	],
+    '24':[
+        'name' 		:'System Response',
+    	'color'		:'orange',
+        'program'	:'parseInformationResponse'
     	],
     '22':[
         'name' 		:'Settings',
     	'color'		:'blue'
     	],
-    '23':[
-        'name' 		:'Filter',
-    	'color'		:'orange',
-        'program'	:'parseFilterResponse'
+    '00':[
+        'name' 		:'New Client Clear to Send',
+    	'color'		:'green'
     	],
-    '24':[
-        'name' 		:'System',
-    	'color'		:'orange',
-        'program'	:'parseInformationResponse'
+    '06':[
+        'name' 		:'Clear to Send',
+    	'color'		:'green'
     	],
-    '25':[
-        'name' 		:'Preference',
-    	'color'		:'blue'
+    '07':[
+        'name' 		:'Nothing to Send',
+    	'color'		:'green'
+    	],
+    '96':[
+        'name' 		:'System Error',
+    	'color'		:'red'
     	],
     '26':[
         'name' 		:'WiFi Module',
