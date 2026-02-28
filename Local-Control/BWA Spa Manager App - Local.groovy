@@ -21,7 +21,7 @@
 import groovy.transform.Field
 
 @Field static String PARENT_DEVICE_NAME            = "BWA Spa Manager App - Local"
-@Field static final String VERSION                 = "0.0.1"
+@Field static final String VERSION                 = "2.0.0"
 @Field static final String PARENT_TYPENAME         = "Balboa Hot Tub Local Driver"
 
 
@@ -76,11 +76,19 @@ def mainPage() {
             paragraph ("")
         }
         section(sectionHeader("BWA Spa Manager - Local TCP Access")) {
+            input name: "ipAddress", type: "string", title: fmtTitle("Local IP address (eg. x.x.x.x) of the Spa"), submitOnChange: true, required: true
             def deviceID = getChildDevice(state.deviceNetworkID).id
             paragraph "The <a target='_blank' rel='noopener noreferrer' href='http://${location.hub.localIP}/device/edit/${getChildDevice(state.deviceNetworkID).id}'>${getChildDevice(state.deviceNetworkID)}</a> parent device has been installed for you.\nYou can control all your BWA Spa accessories using this parent device."
             paragraph "The following ${getFormat('text-red','child virtual switches')} under the '${spaDriverName}' device have been created for controlling your BWA Spa accessories from your Hubitat Dashboard, Rules or WebCore."
             getChildDevice(state.deviceNetworkID).getChildDevices().each {
                 paragraph "→ <a target='_blank' rel='noopener noreferrer' href='http://${location.hub.localIP}/device/edit/${it.id}'>${it}</a>"
+            }
+            if (settings.ipAddress) {
+                def d = getChildDevice(state.deviceNetworkID)
+                logInfo "Updating ${d.label} ipaddress to ${ipAddress}"
+                d.updateSetting("ipaddress",[value:"${ipAddress}",type:"enum"])
+                logInfo "Checking for a valid spa configuration at ${ipAddress}"
+                d.isSpaConfigOK(true)
             }
         }
 

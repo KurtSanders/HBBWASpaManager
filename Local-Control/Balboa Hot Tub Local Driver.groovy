@@ -196,8 +196,9 @@ void initialize() {
 }
 
 void updated() {
-	logDebug "Preferences Updated..."
+	logDebug "Running Updated()... Checking for valid ip address"
     if (ipaddress==null || ipaddress.isEmpty()) return
+	logDebug "Preferences Updated..."
 
     checkLogLevel()  // Set Logging Objects
     initialize() // Reset thermostat attribute states
@@ -214,8 +215,13 @@ void updated() {
         configure()
     }
     // Show the Spa Configuration
-    state.spaConfiguration.sort().each { key, value ->
-        logDebug "state.spaConfiguration: ${key}: = ${value}"
+    if (state.spaConfiguration) {
+	    state.spaConfiguration.sort().each { key, value ->
+    	    logDebug "state.spaConfiguration: ${key}: = ${value}"
+    	}
+    } else {
+        logErr "state.spaConfiguration is missing data, running Configure()"
+        runIn(5, 'configure')
     }
 
     // Configure device poll timer interval
@@ -378,18 +384,26 @@ void setsupportedFanSpeeds() {
 
 void refresh(arg=null) {
 	logTrace ("refresh()")
-    send(NOTHING_TO_SEND)
+    if (!isSpaConfigOK()) {
+	    logWarn "Warning: Auto-generating spa configuration..."
+    	configure()
+    } else {
+	    send(NOTHING_TO_SEND)
+    }
 }
 
 void configure() {
-	logTrace ("configure()")
 	// Get Device Configuration
+	logDebug ("configure(): Get Device Configuration")
     send(GET_DEVICES)
 }
 
-boolean isSpaConfigOK() {
-	def exists = (state.spaConfiguration && !state.spaConfiguration.empty)
-    if (!exists) logErr "Configuration Error: state.spaConfiguration is missing"
+boolean isSpaConfigOK(autoConfigure = false) {
+	def exists = (state.spaConfiguration && state.spaConfiguration != null)
+    if (!exists) {
+        logErr "Spa Configuration Error: state.spaConfiguration is null"
+        if (autoConfigure) configure()
+    }    
     return exists
 }
 
@@ -948,7 +962,7 @@ def parsePanelData(hexData) {
     // Spa Pumps
     def pumpState0 // Circulation Pump
     def accessory = 'Pump0'
-    if(state.spaConfiguration.containsKey(accessory)) {
+    if(null != state.spaConfiguration && state.spaConfiguration.containsKey(accessory)) {
         if (state.spaConfiguration[accessory].installed) {
             switch (decoded[13] & 2) { // Pump 0
                 case 2:
@@ -963,7 +977,7 @@ def parsePanelData(hexData) {
 
     def pumpState1
     accessory = 'Pump1'
-    if(state.spaConfiguration.containsKey(accessory)) {
+    if(null != state.spaConfiguration && state.spaConfiguration.containsKey(accessory)) {
         if (state.spaConfiguration[accessory].installed) {
             switch (decoded[11] & 3) { // Pump 1
                 case 1:
@@ -981,7 +995,7 @@ def parsePanelData(hexData) {
 
     def pumpState2
     accessory = 'Pump2'
-    if(state.spaConfiguration.containsKey(accessory)) {
+    if(null != state.spaConfiguration && state.spaConfiguration.containsKey(accessory)) {
         if (state.spaConfiguration[accessory].installed) {
             switch (decoded[11] & 12) { // Pump 2
                 case 4:
@@ -999,7 +1013,7 @@ def parsePanelData(hexData) {
 
     def pumpState3
     accessory = 'Pump3'
-    if(state.spaConfiguration.containsKey(accessory)) {
+    if(null != state.spaConfiguration && state.spaConfiguration.containsKey(accessory)) {
         if (state.spaConfiguration[accessory].installed) {
             switch (decoded[11] & 48) { // Pump 3
                 case 16:
@@ -1017,7 +1031,7 @@ def parsePanelData(hexData) {
 
     def pumpState4
     accessory = 'Pump4'
-    if(state.spaConfiguration.containsKey(accessory)) {
+    if(null != state.spaConfiguration && state.spaConfiguration.containsKey(accessory)) {
         if (state.spaConfiguration[accessory].installed) {
             switch (decoded[11] & 192) { // Pump 4
                 case 64:
@@ -1035,7 +1049,7 @@ def parsePanelData(hexData) {
 
     def pumpState5
     accessory = 'Pump5'
-    if(state.spaConfiguration.containsKey(accessory)) {
+    if(null != state.spaConfiguration && state.spaConfiguration.containsKey(accessory)) {
         if (state.spaConfiguration[accessory].installed) {
             switch (decoded[12] & 3) {
                 case 1:
@@ -1053,7 +1067,7 @@ def parsePanelData(hexData) {
 
     def pumpState6
     accessory = 'Pump6'
-    if(state.spaConfiguration.containsKey(accessory)) {
+    if(null != state.spaConfiguration && state.spaConfiguration.containsKey(accessory)) {
         if (state.spaConfiguration[accessory].installed) {
         switch (decoded[12] & 12) {
                 case 4:
@@ -1081,7 +1095,7 @@ def parsePanelData(hexData) {
     // As far as I know, blower is not controllable, just report state in parent child device?
     def blowerState
     accessory = 'Blower'
-    if(state.spaConfiguration.containsKey(accessory)) {
+    if(null != state.spaConfiguration && state.spaConfiguration.containsKey(accessory)) {
         if (state.spaConfiguration[accessory].installed) {
             switch (decoded[17] & 12) {
                 case 4:
@@ -1103,7 +1117,7 @@ def parsePanelData(hexData) {
     // Lights
     def light1
     accessory = 'Light1'
-    if(state.spaConfiguration.containsKey(accessory)) {
+    if(null != state.spaConfiguration && state.spaConfiguration.containsKey(accessory)) {
         if (state.spaConfiguration[accessory].installed) {
 	        light1 = (((decoded[14] & 3) != 0)?'on':'off')
     	    makeEvent(accessory, light1)
@@ -1111,7 +1125,7 @@ def parsePanelData(hexData) {
     }
     def light2
     accessory = 'Light2'
-    if(state.spaConfiguration.containsKey(accessory)) {
+    if(null != state.spaConfiguration && state.spaConfiguration.containsKey(accessory)) {
         if (state.spaConfiguration[accessory].installed) {
 	        light2 = (((decoded[14] & 12) != 0)?'on':'off')
     	    makeEvent(accessory, light2)
@@ -1125,7 +1139,7 @@ def parsePanelData(hexData) {
     // Mister
     def misterState
     accessory = 'Mister'
-    if(state.spaConfiguration.containsKey(accessory)) {
+    if(null != state.spaConfiguration && state.spaConfiguration.containsKey(accessory)) {
         if (state.spaConfiguration[accessory].installed) {
 	        misterState = ((decoded[15] & 1) != 0)
     	    makeEvent(accessory, misterState)
