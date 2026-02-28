@@ -7,7 +7,7 @@
   "documentationLink": "https://github.com/KurtSanders/HBBWASpaManager/blob/master/README.md",
   "communityLink": "https://community.hubitat.com/t/release-new-bwa-spa-manager-cloud-control-direct-local-tcp/151421",
   "licenseFile": "",
-  "releaseNotes": "Version 2.0.0\n• REQUIRES HPM v1.9.3 or higher for HPM install or update.\n1. Several device driver bug fixes provided by kenrok1.\n2. Added 2 new parent driver commands 'cyclePump' and 'createChildDevices' to create/control pumps and lights by kenrok1.",
+  "releaseNotes": "Version 2.0.0\n• REQUIRES HPM v1.9.7 or higher for HPM install or update.\n1. Several device driver bug fixes provided by kenrok1.\n2. Added 2 new parent driver commands 'cyclePump' and 'createChildDevices' to create/control pumps and lights by kenrok1.",
   "bundles": [
     {
       "id": "2d904d10-35d6-4701-8fbf-7cd2e98722b9",
