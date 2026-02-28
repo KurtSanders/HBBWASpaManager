@@ -25,7 +25,7 @@
 // Constants
 @Field static final String  PARENT_DEVICE_NAME   		= "Balboa Hot Tub Local Driver"
 @Field static final String  CHILD_DEVICE_NAME_SWITCH  	= "Balboa Hot Tub Local Child Switch"
-@Field static final String  VERSION 					= "0.1.0"
+@Field static final String  VERSION 					= "2.0.0"
 @Field static final String  FILENAME_CSS 				= "BalboaLocalPanelTable.css"
 @Field static final Integer READ_WAIT_SECS 				= 15
 @Field static final Integer MAX_RESPONSE_MESSAGES		= 5
@@ -101,6 +101,11 @@ definition(name: PARENT_DEVICE_NAME,
         attribute "speed", "enum", SUPPORTED_PUMP_SPEED_MODES
         attribute "setSpeed", "enum", SUPPORTED_PUMP_SPEED_MODES
         attribute "supportedFanSpeeds", 'JSON_OBJECT'
+    
+	     // ==> Start: Code provided by kenrok1
+	    command "cyclePump", [[name:"Pump Number*", type: "NUMBER", description: "Enter 1, 2, 3, 4, 5, or 6"]]
+		command "createChildDevices"
+	    // ==> End: Code provided by kenrok1
 
 	    command "createAllChildrenSpaSwitchs"
         command "disconnect"
@@ -267,6 +272,94 @@ def createChildren(createIfDoesntExist, String type, String name, Map apiMap = n
     }
     return cd
 }
+
+// ==> Start: Code provided by kenrok1
+// ============================================================
+//   SPA CHILD MANAGEMENT & ALEXA BRIDGE (INTEGRATED)
+// ============================================================
+
+def setPumps(String status) {
+    cycleSpeed()
+}
+
+// --- STANDALONE CHILD DISCOVERY ---
+def createChildDevices() {
+    log.info "Analyzing spaConfiguration for device discovery..."
+    def config = state.spaConfiguration
+    if (config instanceof String) { config = parseJson(config) }
+    
+    if (!config) {
+        log.warn "No spaConfiguration found! Click Refresh, wait 5s, then click 'Create Child Devices'."
+        return
+    }
+    
+    (1..6).each { i ->
+        def pumpInfo = config["Pump${i}"]
+        if (pumpInfo?.installed == true) {
+            String pId = "${device.deviceNetworkId}-Pump${i}"
+            if (!getChildDevice(pId)) {
+                addChildDevice("hubitat", "Generic Component Switch", pId, [name: "${device.displayName} Pump ${i}", isComponent: false])
+                log.info "Created: Pump ${i}"
+            }
+        }
+    }
+    
+    (1..2).each { i ->
+        def lightInfo = config["Light${i}"]
+        if (lightInfo?.installed == true) {
+            String lId = "${device.deviceNetworkId}-Light${i}"
+            if (!getChildDevice(lId)) {
+                addChildDevice("hubitat", "Generic Component Switch", lId, [name: "${device.displayName} Light ${i}", isComponent: false])
+                log.info "Created: Light ${i}"
+            }
+        }
+    }
+}
+
+// --- CHILD EVENT HANDLERS (ALEXA COMPATIBILITY) ---
+void componentOn(cd)  { processChildCommand(cd) }
+void componentOff(cd) { processChildCommand(cd) }
+
+void componentRefresh(cd) {
+    refresh()
+}
+
+private processChildCommand(cd) {
+    def dni = cd.deviceNetworkId
+    
+    // ALEXA FIX: Instant feedback to prevent "Not Responding"
+    cd.sendEvent(name: "switch", value: "on", isStateChange: true)
+    
+    if (dni.contains("-Pump")) {
+        def num = dni.split("-Pump")[-1] as Integer
+        cyclePump(num)
+    } 
+    else if (dni.contains("-Light")) {
+        def num = dni.split("-Light")[-1] as Integer
+        String lightCmd = "SET_LIGHT${num}"
+        if (this."${lightCmd}") { send(this."${lightCmd}") }
+    }
+    
+    runIn(2, "resetChildSwitch", [data: dni])
+}
+
+// Helper to cycle pumps by number
+def cyclePump(pumpNumber) {
+    def target = (pumpNumber instanceof Map) ? pumpNumber.data : pumpNumber
+    String pumpCmd = "SET_PUMP${target}"
+    if (this."${pumpCmd}") {
+        send(this."${pumpCmd}")
+    }
+}
+
+// Resets the UI button to "Off" after 2 seconds
+void resetChildSwitch(dni) {
+    def cd = getChildDevice(dni)
+    if (cd) cd.sendEvent(name: "switch", value: "off", isStateChange: true)
+}
+
+// ============================================================
+// ==> End: Code provided by kenrok1
 
 void childRunApi(device, apiMap) {
     logInfo "Dynamic Function Call: '${apiMap}' received from ${device} child device."
@@ -537,10 +630,32 @@ def parse(String message) {
     byte[] decodedByte
     def cs
     String messageType
-    String CRCByte
+    String CRCByte    
+    
+    // ==> Start: Code provided by kenrok1
+    // Check if the message is already correctly aligned starting with 7E 
+    if (message.startsWith(MESSAGE_DELIMITER)) {
+        logTrace "Message is already aligned starting at ${MESSAGE_DELIMITER}"
+    } else if (message.contains(MESSAGE_DELIMITER)) {
+        // Only try to re-align if 7E exists somewhere else in the string
+        logTrace "Misaligned Raw Message: Re-aligning to ${MESSAGE_DELIMITER}"
+        try {
+            message = message.substring(message.indexOf(MESSAGE_DELIMITER))
+            logTrace "==> Here is the new aligned message= ${message}"
+        } catch (e) {
+            log.warn "Could not re-align message: ${message}. Error: ${e}"
+            return
+        }
+    } else {
+        log.warn "Invalid message received (no delimiter found): ${message}"
+        return
+    }
+    // ==> End: Code provided by kenrok1
 
+	// Outdated code replaced by above
     // Check to make sure that the first byte starts with MESSAGE_DELIMITER
     // Check for invalid 7E7E message packets and discard them
+    /* 
     if (message ==~ /^${MESSAGE_DELIMITER}/) {
         logTrace "This raw message is perfectly aligned starting at ${MESSAGE_DELIMITER}"
     } else {
@@ -548,7 +663,8 @@ def parse(String message) {
 		message = (message =~ /^.*?${MESSAGE_DELIMITER}(${MESSAGE_DELIMITER}.*)/)[0][1]
         logTrace "==> Here is the new aligned message= ${message}"
     }
-//	List<String> hexDataList = message.findAll(/${MESSAGE_DELIMITER}.*?${MESSAGE_DELIMITER}/).unique { a, b -> a <=> b } as String[]
+	//	List<String> hexDataList = message.findAll(/${MESSAGE_DELIMITER}.*?${MESSAGE_DELIMITER}/).unique { a, b -> a <=> b } as String[]
+	*/
 
 	def regex_pattern = /(?!${MESSAGE_DELIMITER}${MESSAGE_DELIMITER})${MESSAGE_DELIMITER}(.{6}(?:13|2E|23|24).*?)${MESSAGE_DELIMITER}/    
     List<String> hexDataList = message.findAll(regex_pattern).unique { a, b -> a <=> b } as String[]
