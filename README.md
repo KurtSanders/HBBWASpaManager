@@ -35,7 +35,8 @@
 - [Hubitat Package Manager](https://hubitatpackagemanager.hubitatcommunity.com/)
 
 ### How to install BWA Spa Manager: (Select the desired connection type below)
-#### Cloud Control (Uses BWA's cloud server)
+#### Cloud Control (Unsupported Legacy)
+* Uses BWA's Paid Cloud Server for API access
 
 1. Connect the spa to use these steps: 
 	* [BWA Cloud Spa Controller](https://www.hottuboutpost.com/bwa-wifi-module-for-balboa-bp-series-spa-packs-iphone-android-app-50350/)
