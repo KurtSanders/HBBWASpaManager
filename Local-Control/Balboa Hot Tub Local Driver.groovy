@@ -25,7 +25,7 @@
 // Constants
 @Field static final String  PARENT_DEVICE_NAME   		= "Balboa Hot Tub Local Driver"
 @Field static final String  CHILD_DEVICE_NAME_SWITCH  	= "Balboa Hot Tub Local Child Switch"
-@Field static final String  VERSION 					= "2.0.0"
+@Field static final String  VERSION 					= "2.1.0"
 @Field static final String  FILENAME_CSS 				= "BalboaLocalPanelTable.css"
 @Field static final Integer READ_WAIT_SECS 				= 15
 @Field static final Integer MAX_RESPONSE_MESSAGES		= 5
@@ -130,12 +130,14 @@ preferences {
         input "ipaddress", "text", title: "Device IP:", required: true,
             description: "Balboa device local IP address. Tip: Configure a fixed IP address for your spa on the same network as your Hubitat hub to make sure the spa's IP address does not change."
 
-        input "port", "text", title: "Device IP Port:", required: true, defaultValue: '4257', description: "Balboa device IP Port address (Default 4257)."
+        input "port", "text", title: "Device IP Port:", required: true, defaultValue: '4257', description: "Balboa device IP Port address (Default 4257). Please insure that your EW11 RS485 is configured to this same port!"
 
         input name: "poll_interval", 		type: "enum", title: "Configure device auto polling interval", defaultValue: 'Off', options: POLLING_OPTIONS,
             description: "Auto poll the panel status of the deivce. Select 'Off' to stop automatic polling.", required: true
         input name: "spaPanelDisplay", 		type: "bool", defaultValue: 'false', title: fmtTitle("Create Spa Panel Table for Dashboard"),
-            description: fmtDesc("An HTML Matrix Table for HE dashboard"), required: true
+            description: fmtDesc("An HTML Matrix Table for HE dashboard. Remember to Save!"), required: true
+        input name: "spaPanelTableRemovePump0", type: "bool", title: "Remove 'Pump0' Data Element in HTML Table", defaultValue: false,
+            description: fmtDesc("Remove 'Pump0' Data Element in HTML Table. Remember to Save!"), required: true
     }
     section ("Advanced Driver Setttings") {
         input name: "readWaitSecs", 	type: "number", defaultValue: READ_WAIT_SECS, title: fmtTitle("Advanced: Read Wait Time, secs"),
@@ -163,6 +165,8 @@ void installed() {
     setLogLevel("Debug", "30 Minutes")
 	logInfo "Setting Inital logging level to 'Debug' for 30 minutes"
     device.updateSetting('poll_interval', [type: "enum", value: 'off'])
+	logInfo "Setting HTML Pump0 HTML Table to False"
+    device.updateSetting('spaPanelTableRemovePump0', [type: "bool", value: false])
     logInfo "Setting Spa Thermo defaults..."
     setsupportedFanSpeeds()
     updateSettings()
@@ -1209,6 +1213,15 @@ def parsePanelData(hexData) {
         "Mister"    	             : "${(misterState)?:null}",
         "Updated"                    : "${nowFormatted('h:mm:ss a')}"
     ]
+    
+    // Remove Pump 0 (Circ) if user specifies
+    log.debug "==> spaPanelTableRemovePump0= ${spaPanelTableRemovePump0}"
+    if ((settings.spaPanelTableRemovePump0 == null || settings.spaPanelTableRemovePump0 == true)) {
+ 		def keysToRemove = ['Pump 0 (Circ)']
+	    logDebug "==> spaItem before ${spaItems}"
+ 		spaItems.keySet().removeAll(keysToRemove) 
+	    logDebug "==> spaItem after ${spaItems}"
+    }
 
     makeEvent('TTSmessage', "Your spa is currently at ${actualTemperature}${temperatureScale} and is ${heatModeText.uncapitalize()}.")
 

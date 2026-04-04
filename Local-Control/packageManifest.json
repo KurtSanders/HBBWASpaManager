@@ -2,12 +2,12 @@
   "packageName": "BWA Spa Manager - Local Control",
   "author": "Kurt Sanders",
   "minimumHEVersion": "2.4.3",
-  "dateReleased": "2026-02-26",
-  "version": "2.0.0",
+  "dateReleased": "2026-04-04",
+  "version": "2.1.0",
   "documentationLink": "https://github.com/KurtSanders/HBBWASpaManager/blob/master/README.md",
   "communityLink": "https://community.hubitat.com/t/release-new-bwa-spa-manager-cloud-control-direct-local-tcp/151421",
   "licenseFile": "",
-  "releaseNotes": "Version 2.0.0\n• REQUIRES HPM v1.9.7 or higher for HPM install or update.\n1. Several device driver bug fixes provided by kenrok1.\n2. Added 2 new parent driver commands 'cyclePump' and 'createChildDevices' to create/control pumps and lights by kenrok1.",
+  "releaseNotes": "Version 2.1.0\n• REQUIRES HPM v1.9.7 or higher for HPM install or update.\n1. Added a new BWA parent device preference boolean setting to remove the 'Pump0' data element from the dynamic HTML table for optimal mobile display formatting.",
   "bundles": [
     {
       "id": "2d904d10-35d6-4701-8fbf-7cd2e98722b9",
