@@ -1215,7 +1215,7 @@ def parsePanelData(hexData) {
     ]
     
     // Remove Pump 0 (Circ) if user specifies
-    log.debug "==> spaPanelTableRemovePump0= ${spaPanelTableRemovePump0}"
+    logDebug "==> spaPanelTableRemovePump0= ${spaPanelTableRemovePump0}"
     if ((settings.spaPanelTableRemovePump0 == null || settings.spaPanelTableRemovePump0 == true)) {
  		def keysToRemove = ['Pump 0 (Circ)']
 	    logDebug "==> spaItem before ${spaItems}"
