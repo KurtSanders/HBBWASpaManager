@@ -4,7 +4,7 @@
 // id: 1161           <- this is app or driver's id
 // hubitat end
 /**
- * Hubitat Balboa Hot Tub Driver Integration by Kurt Sanders 2025
+ * Hubitat Balboa Hot Tub Driver Integration by Kurt Sanders 2024,2025,2026
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@
 // Constants
 @Field static final String  PARENT_DEVICE_NAME   		= "Balboa Hot Tub Local Driver"
 @Field static final String  CHILD_DEVICE_NAME_SWITCH  	= "Balboa Hot Tub Local Child Switch"
-@Field static final String  VERSION 					= "2.1.0"
+@Field static final String  VERSION 					= "2.2.0"
 @Field static final String  FILENAME_CSS 				= "BalboaLocalPanelTable.css"
 @Field static final Integer READ_WAIT_SECS 				= 15
 @Field static final Integer MAX_RESPONSE_MESSAGES		= 5
@@ -575,7 +575,10 @@ def makeRequest(command, options, ok2send=false) {
             break
     }
     logDebug "==> '${command}' messageRequest= ${messageRequest}"
-    if (ok2send) rc=send(messageRequest)
+    if (ok2send) {
+        rc=send(messageRequest)
+        runIn(5, "refresh", [overwrite: true])
+    }
     else return messageRequest
 }
 
