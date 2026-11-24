@@ -2,7 +2,7 @@
  *  Balboa Hot Tub Local Child Switch
  *  -> Switch Device Driver
  *
- *  Copyright 2023, 2024, 2025 Kurt Sannders
+ *  Copyright 2023, 2024, 2025 Kurt Sanders
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  *  in compliance with the License. You may obtain a copy of the License at:
@@ -48,19 +48,22 @@ void setApiMap(Map apiMap) {
 }
 
 void on() {
+    sendEvent(name: "switch", value: "on", isStateChange: true)
     if (state.apiMap) {
         parent?.childRunApi(device, state.apiMap)
-    } else logErr "Error missing required state variable apiMap '${state.apiMap}' to send to parent device"
+    } else {
+        logErr "Error missing required state variable apiMap '${state.apiMap}' to send to parent device"
+    }
     runIn(1, 'off')
 }
 
 void off() {
-    sendEvent(name: "switch", value: 'off')
+    sendEvent(name: "switch", value: "off")
 }
 
 def refresh() {
-    if (logEnable) log.debug "Refresh called from child, requesting update from parent"
-    parent.refresh()
+    logDebug "Refresh called from child, requesting update from parent"
+    parent?.refresh()
 }
 
 //Additional Preferences

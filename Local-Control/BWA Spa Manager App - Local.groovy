@@ -60,44 +60,83 @@ def installed() {
 }
 
 def updated() {
-    if (state.deviceName != spaDriverName) {
-	    log.info "Changing Spa Parent Driver label to ${spaDriverName}"
-    	getChildDevice(state.deviceNetworkID).label = spaDriverName
+    checkLogLevel()
+    def d = getChildDevice(state.deviceNetworkID)
+    if (!d) {
+        logWarn "Parent Spa device '${state.deviceNetworkID}' not found during updated()"
+        return
+    }
+    if (spaDriverName && state.deviceName != spaDriverName) {
+        logInfo "Changing Spa Parent Driver label to ${spaDriverName}"
+        d.label = spaDriverName
         state.deviceName = spaDriverName
+    }
+    if (settings.ipAddress && isValidIPv4(settings.ipAddress)) {
+        if (state.lastSyncedIp != settings.ipAddress) {
+            logInfo "Updating ${d.label} ipaddress to ${settings.ipAddress}"
+            d.updateSetting("ipaddress", [value: "${settings.ipAddress}", type: "text"])
+            state.lastSyncedIp = settings.ipAddress
+        }
+    }
+    if (settings.port) {
+        d.updateSetting("port", [value: "${settings.port}", type: "text"])
+    }
+    if (settings.pollInterval) {
+        d.updateSetting("poll_interval", [value: "${settings.pollInterval}", type: "enum"])
+    }
+    d.updateSetting("createMomentarySwitches", [value: (settings.createMomentarySwitches != false), type: "bool"])
+    d.updated()
+    if (settings.ipAddress && isValidIPv4(settings.ipAddress)) {
+        d.isSpaConfigOK(true)
     }
 }
 
-def mainPage() {
+private boolean isValidIPv4(String ip) {
+    return (ip ==~ /^((25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(25[0-5]|2[0-4]\d|[01]?\d\d?)$/)
+}
 
-    dynamicPage(name: "mainPage", uninstall: true, install: getChildDevices()?true:false ) {
-        //Community Help Link
-        section () {
+def mainPage() {
+    def parentDevice = getChildDevice(state.deviceNetworkID)
+
+    dynamicPage(name: "mainPage", uninstall: true, install: getChildDevices() ? true : false) {
+        // Community Help Link
+        section() {
             input name: "helpInfo", type: "hidden", title: fmtHelpInfo("Hubitat Community Support <u>WebLink</u> to ${app.name}")
-            paragraph ("")
+            paragraph("")
         }
         section(sectionHeader("BWA Spa Manager - Local TCP Access")) {
             input name: "ipAddress", type: "string", title: fmtTitle("Local IP address (eg. x.x.x.x) of the Spa"), submitOnChange: true, required: true
-            def deviceID = getChildDevice(state.deviceNetworkID).id
-            paragraph "The <a target='_blank' rel='noopener noreferrer' href='http://${location.hub.localIP}/device/edit/${getChildDevice(state.deviceNetworkID).id}'>${getChildDevice(state.deviceNetworkID)}</a> parent device has been installed for you.\nYou can control all your BWA Spa accessories using this parent device."
-            paragraph "The following ${getFormat('text-red','child virtual switches')} under the '${spaDriverName}' device have been created for controlling your BWA Spa accessories from your Hubitat Dashboard, Rules or WebCore."
-            getChildDevice(state.deviceNetworkID).getChildDevices().each {
-                paragraph "→ <a target='_blank' rel='noopener noreferrer' href='http://${location.hub.localIP}/device/edit/${it.id}'>${it}</a>"
+            if (settings.ipAddress && !isValidIPv4(settings.ipAddress)) {
+                paragraph "<span style='color:red'><b>Invalid IPv4 address:</b> '${settings.ipAddress}'. Please enter a valid IP address (e.g. 192.168.1.50).</span>"
             }
-            if (settings.ipAddress) {
-                def d = getChildDevice(state.deviceNetworkID)
-                logInfo "Updating ${d.label} ipaddress to ${ipAddress}"
-                d.updateSetting("ipaddress",[value:"${ipAddress}",type:"enum"])
-                logInfo "Checking for a valid spa configuration at ${ipAddress}"
-                d.isSpaConfigOK(true)
+            input name: "port", type: "string", title: fmtTitle("Local TCP Port (Default 4257)"), defaultValue: "4257", required: true
+            input name: "pollInterval", type: "enum", title: fmtTitle("Auto Polling Interval"), defaultValue: "runEvery10Minutes", options: POLLING_OPTIONS, required: true
+            input name: "createMomentarySwitches", type: "bool", title: fmtTitle("Create Momentary Control Child Switches"), defaultValue: true, required: false
+
+            if (parentDevice) {
+                paragraph "The <a target='_blank' rel='noopener noreferrer' href='http://${location.hub.localIP}/device/edit/${parentDevice.id}'>${parentDevice}</a> parent device has been installed for you.\nYou can control all your BWA Spa accessories using this parent device."
+                paragraph "The following ${getFormat('text-red', 'child virtual switches')} under the '${spaDriverName}' device have been created for controlling your BWA Spa accessories from your Hubitat Dashboard, Rules or WebCore."
+                parentDevice.getChildDevices()?.each {
+                    paragraph "→ <a target='_blank' rel='noopener noreferrer' href='http://${location.hub.localIP}/device/edit/${it.id}'>${it}</a>"
+                }
+                if (settings.ipAddress && isValidIPv4(settings.ipAddress) && state.lastSyncedIp != settings.ipAddress) {
+                    logInfo "Updating ${parentDevice.label} ipaddress to ${settings.ipAddress}"
+                    parentDevice.updateSetting("ipaddress", [value: "${settings.ipAddress}", type: "text"])
+                    state.lastSyncedIp = settings.ipAddress
+                    logInfo "Checking for a valid spa configuration at ${settings.ipAddress}"
+                    parentDevice.isSpaConfigOK(true)
+                }
+            } else {
+                paragraph "Parent Spa device is not yet installed. Click Done to complete setup."
             }
         }
 
-        //Spa Parent Driver Options
-		section(sectionHeader("BWA Spa Parent Driver Rename")) {
-        	input name:"spaDriverName", title: fmtTitle("Optional: Enter a new name for the parent spa device."), type: "string", required: true, multiple: false, defaultValue: app.name
+        // Spa Parent Driver Options
+        section(sectionHeader("BWA Spa Parent Driver Rename")) {
+            input name: "spaDriverName", title: fmtTitle("Optional: Enter a new name for the parent spa device."), type: "string", required: true, multiple: false, defaultValue: app.name
         }
-        
-        //Logging Options
+
+        // Logging Options
         section(sectionHeader("Logging Options")) {
             input name: "logLevel", type: "enum", title: fmtTitle("Logging Level"),
                 description: fmtDesc("Logs selected level and above"), defaultValue: 3, submitOnChange: true, options: LOG_LEVELS

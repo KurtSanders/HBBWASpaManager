@@ -25,7 +25,7 @@
 // Constants
 @Field static final String  PARENT_DEVICE_NAME   		= "Balboa Hot Tub Local Driver"
 @Field static final String  CHILD_DEVICE_NAME_SWITCH  	= "Balboa Hot Tub Local Child Switch"
-@Field static final String  VERSION 					= "2.2.0"
+@Field static final String  VERSION 					= "2.2.1"
 @Field static final String  FILENAME_CSS 				= "BalboaLocalPanelTable.css"
 @Field static final Integer READ_WAIT_SECS 				= 15
 @Field static final Integer MAX_RESPONSE_MESSAGES		= 5
@@ -46,7 +46,6 @@ definition(name: PARENT_DEVICE_NAME,
         capability "Temperature Measurement"
         capability "Thermostat Heating Setpoint"
         capability "Thermostat Setpoint"
-	    capability "Temperature Measurement"
     	capability "Contact Sensor"
     	capability "Presence Sensor"
 	    capability "Fan Control"
@@ -60,7 +59,6 @@ definition(name: PARENT_DEVICE_NAME,
         attribute "filterMode", "enum", ["off", "cycle 1", "cycle 2", "cycle 1 and 2"]
         attribute "heatMode", "enum", HEATMODES
         attribute "heatingSetpointFormatted", "string"
-        attribute "thermostatMode", "string"
         attribute "heatingSetpoint", "number"
         attribute "is24HourTime", "enum", ["true","false"]
         attribute "isFilter2Active", "enum", ["true","false"]
@@ -89,13 +87,11 @@ definition(name: PARENT_DEVICE_NAME,
     	attribute "temperatureFormatted", "string"
         attribute "TTSmessage", "string"
         attribute "updated_at", "string"
-        attribute "wifiState", "enum", ["WiFi OK","WiFi Spa Not Communicating","WiFi Startup","WiFi Prime","WiFi Hold","WiFi Panel","WiFi Unnknown"]
+        attribute "wifiState", "enum", ["WiFi OK","WiFi Spa Not Communicating","WiFi Startup","WiFi Prime","WiFi Hold","WiFi Panel","WiFi Unknown"]
 
-        attribute "supportedThermostatFanModes", 'JSON_OBJECT'
         attribute "supportedThermostatModes", 'JSON_OBJECT'
-        attribute "thermostatOperatingState", "enum",  THERMO_STAT_OPERATING_STATE
+        attribute "thermostatOperatingState", "enum", THERMO_STAT_OPERATING_STATES
         attribute "thermostatMode", "enum", THERMO_STAT_MODES
-
         attribute "supportedThermostatFanModes", 'JSON_OBJECT'
         attribute "thermostatFanMode", "enum", THERMO_STAT_FAN_MODES
         attribute "speed", "enum", SUPPORTED_PUMP_SPEED_MODES
@@ -109,6 +105,7 @@ definition(name: PARENT_DEVICE_NAME,
 
 	    command "createAllChildrenSpaSwitchs"
         command "disconnect"
+        command "getFilterSchedule"
         command "setHeatingSetpoint", [[name:'Heating Setpoint 55-104°F | 14-40°C*'	, 
                                         type:'NUMBER', description:'Heating setpoint temperature from 55°F-104°F| 14-40°C', range: "14..104"]]
     	command "setLights"			, [[name:"Set Spa Lights On/Off*"				, 
@@ -138,6 +135,12 @@ preferences {
             description: fmtDesc("An HTML Matrix Table for HE dashboard. Remember to Save!"), required: true
         input name: "spaPanelTableRemovePump0", type: "bool", title: "Remove 'Pump0' Data Element in HTML Table", defaultValue: false,
             description: fmtDesc("Remove 'Pump0' Data Element in HTML Table. Remember to Save!"), required: true
+        input name: "createMomentarySwitches", type: "bool", defaultValue: true, title: fmtTitle("Create Momentary Control Child Switches"),
+            description: fmtDesc("Create/maintain momentary child switches for Dashboard/Rules"), required: false
+        input name: "autoSyncClock", type: "bool", defaultValue: false, title: fmtTitle("Auto-Sync Spa Clock to Hub Time"),
+            description: fmtDesc("Automatically update spa clock if drift exceeds threshold"), required: false
+        input name: "clockDriftThresholdMins", type: "number", defaultValue: 2, title: fmtTitle("Clock Drift Threshold (Minutes)"),
+            description: fmtDesc("Minimum minute difference before auto-syncing clock"), required: false
     }
     section ("Advanced Driver Setttings") {
         input name: "readWaitSecs", 	type: "number", defaultValue: READ_WAIT_SECS, title: fmtTitle("Advanced: Read Wait Time, secs"),
@@ -172,7 +175,7 @@ void installed() {
     updateSettings()
     makeEvent("switch", "off")
     initialize()
-    createAllChildrenSpaSwitchs()
+    if (settings.createMomentarySwitches != false) createAllChildrenSpaSwitchs()
 }
 
 void updateSettings() {
@@ -248,36 +251,32 @@ void updated() {
             	break
         }
     }
-    createAllChildrenSpaSwitchs()
+    if (settings.createMomentarySwitches != false) createAllChildrenSpaSwitchs()
 }
 
 def createAllChildrenSpaSwitchs() {
-
-    createChildren(true, CHILD_DEVICE_NAME_SWITCH, "Refresh Local Spa"      , [functionName: 'refresh'		, parameter: "null"])
-    createChildren(true, CHILD_DEVICE_NAME_SWITCH, "Set Heat Mode to Ready" , [functionName: 'setHeatMode'	, parameter: "Ready"])
-    createChildren(true, CHILD_DEVICE_NAME_SWITCH, "Set Heat Mode to Rest"  , [functionName: 'setHeatMode'	, parameter: "Rest"])
-    createChildren(true, CHILD_DEVICE_NAME_SWITCH, "Set Temp Range to High" , [functionName: 'setTempRange'	, parameter: "High"])
-    createChildren(true, CHILD_DEVICE_NAME_SWITCH, "Set Temp Range to Low"  , [functionName: 'setTempRange'	, parameter: "Low"])
-    createChildren(true, CHILD_DEVICE_NAME_SWITCH, "Set Spa Pumps On"  		, [functionName: 'setPumps'		, parameter: "on"])
-    createChildren(true, CHILD_DEVICE_NAME_SWITCH, "Set Spa Pumps Off"  	, [functionName: 'setPumps'		, parameter: "off"])
-    createChildren(true, CHILD_DEVICE_NAME_SWITCH, "Set Spa Lights On" 		, [functionName: 'setLights'	, parameter: "on"])
-    createChildren(true, CHILD_DEVICE_NAME_SWITCH, "Set Spa Lights Off" 	, [functionName: 'setLights'	, parameter: "off"])
+    createChildren(true, CHILD_DEVICE_NAME_SWITCH, "Refresh Local Spa"      , [functionName: 'refresh'     , parameter: "null"])
+    createChildren(true, CHILD_DEVICE_NAME_SWITCH, "Set Heat Mode to Ready" , [functionName: 'setHeatMode' , parameter: "Ready"])
+    createChildren(true, CHILD_DEVICE_NAME_SWITCH, "Set Heat Mode to Rest"  , [functionName: 'setHeatMode' , parameter: "Rest"])
+    createChildren(true, CHILD_DEVICE_NAME_SWITCH, "Set Temp Range to High" , [functionName: 'setTempRange', parameter: "High"])
+    createChildren(true, CHILD_DEVICE_NAME_SWITCH, "Set Temp Range to Low"  , [functionName: 'setTempRange', parameter: "Low"])
+    createChildren(true, CHILD_DEVICE_NAME_SWITCH, "Set Spa Pumps On"       , [functionName: 'setPumps'    , parameter: "on"])
+    createChildren(true, CHILD_DEVICE_NAME_SWITCH, "Set Spa Pumps Off"      , [functionName: 'setPumps'    , parameter: "off"])
+    createChildren(true, CHILD_DEVICE_NAME_SWITCH, "Set Spa Lights On"      , [functionName: 'setLights'   , parameter: "on"])
+    createChildren(true, CHILD_DEVICE_NAME_SWITCH, "Set Spa Lights Off"     , [functionName: 'setLights'   , parameter: "off"])
 }
 
 def createChildren(createIfDoesntExist, String type, String name, Map apiMap = null) {
     String thisId = device.id
     def childDeviceName = "${thisId}-${name}"
-    logTrace "childDeviceName: '${childDeviceName}"
+    logTrace "childDeviceName: '${childDeviceName}'"
 
     def cd = getChildDevice(childDeviceName)
     if (!cd && createIfDoesntExist) {
-
         logInfo "Adding Child Device Driver: ${type}, Name: '${childDeviceName}' with apiMap: ${apiMap}"
         cd = addChildDevice(NAMESPACE, type, childDeviceName, [name: "${device.displayName} - ${name}", label: "${name}", isComponent: false])
     }
-    // child devices will have a state.apiMap variable that is passed to the parent
-    // update the state.apiMap
-    if (apiMap) {
+    if (apiMap && cd) {
         cd.setApiMap(apiMap)
     }
     return cd
@@ -297,12 +296,12 @@ def createChildDevices() {
     log.info "Analyzing spaConfiguration for device discovery..."
     def config = state.spaConfiguration
     if (config instanceof String) { config = parseJson(config) }
-    
+
     if (!config) {
         log.warn "No spaConfiguration found! Click Refresh, wait 5s, then click 'Create Child Devices'."
         return
     }
-    
+
     (1..6).each { i ->
         def pumpInfo = config["Pump${i}"]
         if (pumpInfo?.installed == true) {
@@ -311,9 +310,10 @@ def createChildDevices() {
                 addChildDevice("hubitat", "Generic Component Switch", pId, [name: "${device.displayName} Pump ${i}", isComponent: false])
                 log.info "Created: Pump ${i}"
             }
+            syncComponentChild("Pump${i}", (device.currentValue("Pump${i}") ?: "off").toLowerCase() != "off")
         }
     }
-    
+
     (1..2).each { i ->
         def lightInfo = config["Light${i}"]
         if (lightInfo?.installed == true) {
@@ -322,51 +322,69 @@ def createChildDevices() {
                 addChildDevice("hubitat", "Generic Component Switch", lId, [name: "${device.displayName} Light ${i}", isComponent: false])
                 log.info "Created: Light ${i}"
             }
+            syncComponentChild("Light${i}", (device.currentValue("Light${i}") ?: "off").toLowerCase() == "on")
         }
     }
 }
 
+void syncComponentChild(String suffix, boolean isOn) {
+    def cd = getChildDevice("${device.deviceNetworkId}-${suffix}")
+    if (!cd) return
+    String target = isOn ? "on" : "off"
+    if (cd.currentValue("switch") != target) {
+        cd.sendEvent(name: "switch", value: target)
+    }
+}
+
 // --- CHILD EVENT HANDLERS (ALEXA COMPATIBILITY) ---
-void componentOn(cd)  { processChildCommand(cd) }
-void componentOff(cd) { processChildCommand(cd) }
+void componentOn(cd)  { processChildCommand(cd, "on") }
+void componentOff(cd) { processChildCommand(cd, "off") }
 
 void componentRefresh(cd) {
     refresh()
 }
 
-private processChildCommand(cd) {
-    def dni = cd.deviceNetworkId
-    
-    // ALEXA FIX: Instant feedback to prevent "Not Responding"
-    cd.sendEvent(name: "switch", value: "on", isStateChange: true)
-    
+private processChildCommand(cd, String desiredState = "on") {
+    String dni = cd.deviceNetworkId
+    cd.sendEvent(name: "switch", value: desiredState, isStateChange: true)
+
     if (dni.contains("-Pump")) {
-        def num = dni.split("-Pump")[-1] as Integer
-        cyclePump(num)
-    } 
-    else if (dni.contains("-Light")) {
-        def num = dni.split("-Light")[-1] as Integer
-        String lightCmd = "SET_LIGHT${num}"
-        if (this."${lightCmd}") { send(this."${lightCmd}") }
+        int num = dni.split("-Pump")[-1] as Integer
+        String curState = (device.currentValue("Pump${num}") ?: "off").toLowerCase()
+        if (desiredState == "on" && curState == "off") {
+            cyclePump(num)
+        } else if (desiredState == "off" && curState != "off") {
+            int speeds = (state.spaConfiguration?."Pump${num}"?.speeds ?: '2') as Integer
+            int presses = (speeds == 2 && curState == "low") ? 2 : 1
+            presses.times { idx ->
+                cyclePump(num)
+                if (idx + 1 < presses) pauseExecution(500)
+            }
+        }
+        runIn(3, "refresh", [overwrite: true])
+    } else if (dni.contains("-Light")) {
+        int num = dni.split("-Light")[-1] as Integer
+        String curState = (device.currentValue("Light${num}") ?: "off").toLowerCase()
+        if (curState != desiredState) {
+            String lightCmd = "SET_LIGHT${num}"
+            if (this."${lightCmd}") { send(this."${lightCmd}") }
+            runIn(3, "refresh", [overwrite: true])
+        }
     }
-    
-    runIn(2, "resetChildSwitch", [data: dni])
 }
 
 // Helper to cycle pumps by number
 def cyclePump(pumpNumber) {
     def target = (pumpNumber instanceof Map) ? pumpNumber.data : pumpNumber
+    if (!(target?.toString()?.isInteger())) return
     String pumpCmd = "SET_PUMP${target}"
     if (this."${pumpCmd}") {
         send(this."${pumpCmd}")
     }
 }
 
-// Resets the UI button to "Off" after 2 seconds
-void resetChildSwitch(dni) {
-    def cd = getChildDevice(dni)
-    if (cd) cd.sendEvent(name: "switch", value: "off", isStateChange: true)
-}
+// Kept for backward compatibility with any pending scheduled jobs
+void resetChildSwitch(dni) {}
 
 // ============================================================
 // ==> End: Code provided by kenrok1
@@ -374,11 +392,10 @@ void resetChildSwitch(dni) {
 void childRunApi(device, apiMap) {
     logInfo "Dynamic Function Call: '${apiMap}' received from ${device} child device."
     if (apiMap.parameter) {
-	    def cmd = this.&(apiMap.functionName)(apiMap.parameter)
+        this.&(apiMap.functionName)(apiMap.parameter)
     } else {
-	    def cmd = this.&(apiMap.functionName)()
+        this.&(apiMap.functionName)()
     }
-    cmd
 }
 
 void setsupportedFanSpeeds() {
@@ -387,19 +404,26 @@ void setsupportedFanSpeeds() {
 }
 
 void refresh(arg=null) {
-	logTrace ("refresh()")
+    logTrace "refresh()"
     if (!isSpaConfigOK()) {
-	    logWarn "Warning: Auto-generating spa configuration..."
-    	configure()
+        logWarn "Warning: Auto-generating spa configuration..."
+        configure()
     } else {
-	    send(NOTHING_TO_SEND)
+        state.expectConfig = false
+        send(NOTHING_TO_SEND)
     }
 }
 
 void configure() {
-	// Get Device Configuration
-	logDebug ("configure(): Get Device Configuration")
+    logDebug "configure(): Get Device Configuration"
+    state.expectConfig = true
     send(GET_DEVICES)
+}
+
+void getFilterSchedule() {
+    logDebug "getFilterSchedule(): Get Filter Cycle Configuration"
+    state.expectConfig = true
+    send(GET_FILTER)
 }
 
 boolean isSpaConfigOK(autoConfigure = false) {
@@ -413,7 +437,7 @@ boolean isSpaConfigOK(autoConfigure = false) {
 
 def setTempRange(mode=null) {
     logDebug "setTempRange(${mode})..."
-    mode = mode.toLowerCase()
+    mode = mode?.toLowerCase()
 
     if (!['low','high'].contains(mode)) {
         logErr "Invalid Temp Range '${mode}'.. Exiting"
@@ -423,13 +447,13 @@ def setTempRange(mode=null) {
     if (!isSpaConfigOK()) configure()
     else refresh() // Get Latest Spa Accessory States
 
-    def tempRangeCurrent = device.currentValue("tempRange").toLowerCase()
-    logDebug "Device current heating mode is ${tempRangeCurrent.capitalize()}"
+    String tempRangeCurrent = device.currentValue("tempRange")?.toLowerCase()
+    logDebug "Device current heating mode is ${tempRangeCurrent?.capitalize()}"
     if (tempRangeCurrent != mode) {
         logDebug "Setting New TempRange to '${mode.capitalize()}'"
-		send(SET_TEMP_RANGE)
+        send(SET_TEMP_RANGE)
     } else {
-       logErr "Spa is already in '${mode.capitalize()}' mode, command ignored"
+        logErr "Spa is already in '${mode.capitalize()}' mode, command ignored"
     }
 }
 
@@ -443,7 +467,7 @@ def setThermostatFanMode(fanmode) {
 
 def setHeatMode(mode=null) {
     logDebug "setHeatMode(${mode})"
-    mode = mode.toLowerCase()
+    mode = mode?.toLowerCase()
 
     if (!['ready','rest'].contains(mode)) {
         logErr "Invalid Heat Mode '${mode}'.. Exiting"
@@ -453,58 +477,66 @@ def setHeatMode(mode=null) {
     if (!isSpaConfigOK()) configure()
     else refresh() // Get Latest Spa Accessory States
 
-    def currentHeatMode = device.currentValue("heatMode")
-    logDebug "Device current mode is ${heatMode}"
+    String currentHeatMode = device.currentValue("heatMode")?.toLowerCase()
+    logDebug "Device current mode is ${currentHeatMode}"
 
-    if (heatMode != mode) {
+    if (currentHeatMode != mode) {
         send(SET_HEAT_MODE)
         logDebug "Setting new heatMode to '${mode}'"
     } else {
-        logErr "Error: Spa is already in '${heatMode}' mode, command ignored"
+        logErr "Error: Spa is already in '${currentHeatMode}' mode, command ignored"
     }
 }
 
 def setLights(mode=null) {
-    logDebug ("setLights(${mode})")
-    
-    mode = mode.toLowerCase()
+    logDebug "setLights(${mode})"
+
+    mode = mode?.toLowerCase()
     if (!['on','off'].contains(mode)) {
         logErr "Invalid Light Mode '${mode}'.. Exiting"
         return false
     }
-    
-    if (!isSpaConfigOK()) configure()
-    else refresh() // Get Latest Spa Accessory States
+
+    if (!isSpaConfigOK()) {
+        configure()
+        return false
+    }
+    refresh() // Get Latest Spa Accessory States
     pauseExecution(1000)
 
-    state.spaConfiguration.findAll {it.key.startsWith('Light')}.each { outerKey, outerValue ->
-        if (state.spaConfiguration[outerKey].installed) {
+    state.spaConfiguration?.findAll { it.key.startsWith('Light') }?.each { outerKey, outerValue ->
+        if (outerValue?.installed) {
             logInfo "Checking spa state of '${outerKey}'"
             if (device.currentValue(outerKey) != mode) {
                 logInfo "Setting '${outerKey}' to ${mode}"
-                logDebug "Toggle ${outerKey}: Send " +  this."SET_${outerKey.toUpperCase()}"
+                logDebug "Toggle ${outerKey}: Send " + this."SET_${outerKey.toUpperCase()}"
                 send(this."SET_${outerKey.toUpperCase()}")
                 pauseExecution(500)
-            } else logInfo "Set Lights ${mode}: Skipping ${outerKey}, already '${device.currentValue(outerKey)}'"
+            } else {
+                logInfo "Set Lights ${mode}: Skipping ${outerKey}, already '${device.currentValue(outerKey)}'"
+            }
         }
     }
 }
 
 void on() {
-	logDebug ("Switch: on()")
-    if (!isSpaConfigOK()) configure()
-    state.spaConfiguration.findAll {it.key =~ /Pump[123456]/}.each { outerKey, outerValue ->
-    	if (state.spaConfiguration[outerKey].installed) {
-            logDebug "Toggle ${outerKey}: Send " +  this."SET_${outerKey.toUpperCase()}"
-  			send(this."SET_${outerKey.toUpperCase()}")
+    logDebug "Switch: on()"
+    if (!isSpaConfigOK()) {
+        configure()
+        return
+    }
+    state.spaConfiguration?.findAll { it.key =~ /Pump[123456]/ }?.each { outerKey, outerValue ->
+        if (outerValue?.installed) {
+            logDebug "Toggle ${outerKey}: Send " + this."SET_${outerKey.toUpperCase()}"
+            send(this."SET_${outerKey.toUpperCase()}")
             pauseExecution(1000)
-    	}
-	}
+        }
+    }
     setLights('on')
 }
 
 void off() {
-	logDebug ("Switch: off()")
+    logDebug "Switch: off()"
     logDebug "Set Soak Mode"
     send(SET_SOAK_MODE)
     setLights('off')
@@ -512,26 +544,29 @@ void off() {
 
 def updateThermostatSetpoints(setpoint) {
     logInfo "==>updateThermostatSetpoints(${setpoint})"
-    // Verify a valid temperature
-	def tempRange = device.currentValue("tempRange")
+    String tempRange = (device.currentValue("tempRange") ?: "high").toLowerCase()
+    String scale = state.temperatureScale ?: "°F"
     boolean validTempBool = false
 
-    switch (state.temperatureScale) {
-    	case '°F':
-            if (setpoint >= TEMPERATURE_VALID_RANGES_F[tempRange][0] && setpoint <= TEMPERATURE_VALID_RANGES_F[tempRange][1]) validTempBool = true
-	        break
-    	case '°C':
-            if (setpoint >= (TEMPERATURE_VALID_RANGES_F[tempRange][0]/2) && setpoint <= (TEMPERATURE_VALID_RANGES_F[tempRange][1]/2)) validTempBool = true
-	        break
+    switch (scale) {
+        case '°F':
+            def rangeF = TEMPERATURE_VALID_RANGES_F[tempRange]
+            if (rangeF && setpoint >= rangeF[0] && setpoint <= rangeF[1]) validTempBool = true
+            break
+        case '°C':
+            def rangeC = TEMPERATURE_VALID_RANGES_C[tempRange]
+            if (rangeC && setpoint >= rangeC[0] && setpoint <= rangeC[1]) validTempBool = true
+            break
         default:
             break
-        }
-    if (validTempBool) {        
-        logDebug "setTemperature: Valid setpoint temperature ${setpoint}{state.temperatureScale}"
-        makeRequest("setTemperature", setpoint, true)
-        } else {
-            logErr "setTemperature: Invalid setpoint temperature: ${setpoint}{state.temperatureScale}"
-        }
+    }
+    if (validTempBool) {
+        logDebug "setTemperature: Valid setpoint temperature ${setpoint}${scale}"
+        def encodedTemp = (scale == '°C') ? (setpoint.toBigDecimal() * 2).toInteger() : setpoint.toInteger()
+        makeRequest("setTemperature", encodedTemp, true)
+    } else {
+        logErr "setTemperature: Invalid setpoint temperature: ${setpoint}${scale} for '${tempRange}' range"
+    }
 }
 
 void setHeatingSetpoint(setpoint) {
@@ -542,9 +577,9 @@ void setHeatingSetpoint(setpoint) {
 void setTempScale(tempscale) {
     logInfo "Changing Spa Temperature Scale to ${tempscale}"
     if (tempscale == '°C') {
-        send(SET_HEAT_SCALE_C )
+        send(SET_HEAT_SCALE_C)
     } else {
-        send(SET_HEAT_SCALE_F )
+        send(SET_HEAT_SCALE_F)
     }
 }
 
@@ -554,32 +589,33 @@ def makeRequest(command, options, ok2send=false) {
     boolean rc = true
     switch(command) {
         case 'setTemperature':
-	        messageRequest = "06${CHANNEL}20${hubitat.helper.HexUtils.integerToHexString(options.toInteger(), 1)}"
-	        logDebug "==> messageRequest= ${messageRequest}"
+            messageRequest = "06${CHANNEL}20${hubitat.helper.HexUtils.integerToHexString(options.toInteger(), 1)}"
+            logDebug "==> messageRequest= ${messageRequest}"
             byte[] decodedByte = hubitat.helper.HexUtils.hexStringToByteArray(messageRequest)
             def CRCByte = calculateChecksum(decodedByte)
-	        messageRequest = "${MESSAGE_DELIMITER}${messageRequest}${CRCByte}${MESSAGE_DELIMITER}"
-        	break
+            messageRequest = "${MESSAGE_DELIMITER}${messageRequest}${CRCByte}${MESSAGE_DELIMITER}"
+            break
         case 'setTime':
-        	int HH = options.split(':')[0] as Integer
-        	int MM = options.split(':')[1] as Integer
-        	messageRequest = "07${CHANNEL}21${hubitat.helper.HexUtils.integerToHexString(HH, 1)}${hubitat.helper.HexUtils.integerToHexString(MM, 1)}"
-	        logTrace "==> messageRequest= ${messageRequest}"
+            int HH = options.split(':')[0] as Integer
+            int MM = options.split(':')[1] as Integer
+            messageRequest = "07${CHANNEL}21${hubitat.helper.HexUtils.integerToHexString(HH, 1)}${hubitat.helper.HexUtils.integerToHexString(MM, 1)}"
+            logTrace "==> messageRequest= ${messageRequest}"
             byte[] decodedByte = hubitat.helper.HexUtils.hexStringToByteArray(messageRequest)
             def CRCByte = calculateChecksum(decodedByte)
-	        messageRequest = "${MESSAGE_DELIMITER}${messageRequest}${CRCByte}${MESSAGE_DELIMITER}"
-        	break
+            messageRequest = "${MESSAGE_DELIMITER}${messageRequest}${CRCByte}${MESSAGE_DELIMITER}"
+            break
         default:
             logErr "makeRequest(${command}) command is Invalid. Ignoring"
-        	return false
-            break
+            return false
     }
     logDebug "==> '${command}' messageRequest= ${messageRequest}"
     if (ok2send) {
-        rc=send(messageRequest)
+        state.expectConfig = true
+        rc = send(messageRequest)
         runIn(5, "refresh", [overwrite: true])
+    } else {
+        return messageRequest
     }
-    else return messageRequest
 }
 
 void removeDeviceSetting(devname) {
@@ -587,8 +623,8 @@ void removeDeviceSetting(devname) {
 }
 
 void generateToggleHexStrings() {
-    TOGGLE_ITEM_HEX_CODE.each{key, hexCode ->
-        messageRequest = "07${CHANNEL}11${hexCode}00"
+    TOGGLE_ITEM_HEX_CODE.each { key, hexCode ->
+        String messageRequest = "07${CHANNEL}11${hexCode}00"
         byte[] decodedByte = hubitat.helper.HexUtils.hexStringToByteArray(messageRequest)
         def CRCByte = calculateChecksum(decodedByte)
         messageRequest = "${MESSAGE_DELIMITER}${messageRequest}${CRCByte}${MESSAGE_DELIMITER}"
@@ -597,49 +633,49 @@ void generateToggleHexStrings() {
 }
 
 void cycleSpeed() {
-	on()
+    on()
 }
 
 void setSpeed(speedName) {
     logTrace "setSpeed(${speedName})"
-    if (currentPresence != "present") {
-        logErr "Spa is 'offline', Ignoring setSpeed request for '${speedName}'.  Try a COMMAND refresh to check online status"
+    if (device.currentValue("presence") != "present") {
+        logErr "Spa is 'offline', Ignoring setSpeed request for '${speedName}'. Try a COMMAND refresh to check online status"
         return
     }
-    switch (speedName) {
+    switch (speedName?.toLowerCase()) {
         case 'off':
-        break
+            speedName = "off"
+            break
         case "low":
         case ~/^medium.*/:
-        speedName = "low"
-        break
+            speedName = "low"
+            break
         case "high":
         case "auto":
-        speedName = "high"
-        break
+            speedName = "high"
+            break
         default:
             logWarn "Invalid speedName '${speedName}' value passed to setSpeed(). Ignoring..."
-        return
-        break
+            return
     }
-    logTrace "setSpeed/Speed Decoded: → '${speedName}'"
-    if (device.currentValue("speed") == speedName) {
-        logWarn "The spa is currently at '${speedName}'...Ignoring redundant request to setSpeed to ${speedName}..."
+    String currentPump1 = (device.currentValue("Pump1") ?: "off").toLowerCase()
+    if (currentPump1 == speedName) {
+        logWarn "Pump1 is already at '${speedName}'. Ignoring redundant setSpeed request."
         return
     }
-    def curentSpeedIndex = pumpSpeedListIndex()
-    logTrace "curentSpeedIndex= ${curentSpeedIndex}"
-    def targetSpeedIndex = pumpSpeedListIndex(speedName)
-    logTrace "targetSpeedIndex= ${targetSpeedIndex}"
-    def buttonPresses = (targetSpeedIndex - curentSpeedIndex > 0)?(targetSpeedIndex - curentSpeedIndex):(3 + (targetSpeedIndex - curentSpeedIndex))
-    logTrace "buttonPresses= ${buttonPresses}"
-    logInfo "The # virtual button presses to send from ${device.currentValue("speed")} to ${speedName} = ${buttonPresses}"
-
-//    sendEvent(name: "setSpeed", value: speedName)
-//    sendEvent(name: "speed"   , value: speedName)
-//    sendEvent(name: "switch"  , value: (speedName=="off")?speedName:"on")
-    logTrace "parent?.sendCommand('Button',${device.currentValue('balboaAPIButtonNumber')},${buttonPresses})"
-//    parent?.sendCommand("Button", device.currentValue("balboaAPIButtonNumber"),buttonPresses)
+    int speeds = (state.spaConfiguration?.Pump1?.speeds ?: '2') as Integer
+    List<String> cycleOrder = (speeds == 1) ? ['off', 'high'] : ['off', 'low', 'high']
+    if (!cycleOrder.contains(speedName)) speedName = 'high'
+    int currentIdx = Math.max(0, cycleOrder.indexOf(currentPump1))
+    int targetIdx = cycleOrder.indexOf(speedName)
+    int presses = (targetIdx - currentIdx + cycleOrder.size()) % cycleOrder.size()
+    logInfo "Cycling Pump1 from '${currentPump1}' to '${speedName}' (${presses} press(es))"
+    presses.times { idx ->
+        send(SET_PUMP1)
+        if (idx + 1 < presses) pauseExecution(500)
+    }
+    makeEvent("speed", speedName)
+    makeEvent("setSpeed", speedName)
 }
 
 // Process the raw hexstring message packets from the device
@@ -689,7 +725,7 @@ def parse(String message) {
 
 	def regex_pattern = /(?!${MESSAGE_DELIMITER}${MESSAGE_DELIMITER})${MESSAGE_DELIMITER}(.{6}(?:13|2E|23|24).*?)${MESSAGE_DELIMITER}/    
     List<String> hexDataList = message.findAll(regex_pattern).unique { a, b -> a <=> b } as String[]
-    logDebug "==> Found ${hexDataList.size()} importatnt status responses"
+    logDebug "==> Found ${hexDataList.size()} important status responses"
 
     hexDataList.eachWithIndex { it, index ->
         logDebug "Regex ${index+1}= '${it}'"
@@ -707,45 +743,50 @@ def parse(String message) {
             return
         }
 
-        try {        
-            // Redundant raw message CRC and message type check...
-            CRCByte 		= it[-4..-3]
-	        messageType  	= it[8..9]
-    	    logDebug "==> Raw message #${state.rawMessageCount}: ${BALBOA_MESSAGE_TYPES[messageType].name}"
-            
+        String messagePacket
+        def msgMeta
+        try {
+            CRCByte     = it[-4..-3]
+            messageType = it[8..9]
+            msgMeta     = BALBOA_MESSAGE_TYPES[messageType]
+            if (!msgMeta) {
+                logDebug "Message#${state.rawMessageCount} Unknown type '${messageType}': '${it}'"
+                return
+            }
+            logDebug "==> Raw message #${state.rawMessageCount}: ${msgMeta.name}"
+
             // Filter/Skip messages that we do not process
-            if (BALBOA_MESSAGE_TYPES[messageType].program) {
-                // Check how many response messages we have processed and disconnect if we over at the max_response_messages value
-                if (state.processedMessageCount > maxResponseMessages) {
+            if (msgMeta.program) {
+                int maxResp = (maxResponsesMessages ?: MAX_RESPONSE_MESSAGES) as Integer
+                if ((state.processedMessageCount ?: 0) >= maxResp) {
                     logDebug "Auto closing device socket after ${state.processedMessageCount} response messages."
                     disconnect()
+                    return
                 }
-                logDebug "Message#${state.rawMessageCount} Important:   ${BALBOA_MESSAGE_TYPES[messageType].name}"
-                // Increment number of response messsages that have a program to process        
-                state.processedMessageCount = state.processedMessageCount + 1
+                logDebug "Message#${state.rawMessageCount} Important:   ${msgMeta.name}"
+                state.processedMessageCount = (state.processedMessageCount ?: 0) + 1
             } else {
-                logDebug "Message#${state.rawMessageCount} Ignored: ${BALBOA_MESSAGE_TYPES[messageType].name} '${it}'"
+                logDebug "Message#${state.rawMessageCount} Ignored: ${msgMeta.name} '${it}'"
                 return
             }
-            
+
             if (state.lastMessage[messageType] == CRCByte) {
-                logDebug "<span style=color:${BALBOA_MESSAGE_TYPES[messageType].color};>Message #:${state.rawMessageCount} CRCByte ${CRCByte} is redundant with previous ${messageType} message and will be ignored!</span>"
+                logDebug "<span style=color:${msgMeta.color};>Message #:${state.rawMessageCount} CRCByte ${CRCByte} is redundant with previous ${messageType} message and will be ignored!</span>"
                 return
             }
-	        // Validate message integrity usig CRC-8
-			hexData = it[2..-5]
-        	decodedByte = hubitat.helper.HexUtils.hexStringToByteArray(hexData)
-        	cs = calculateChecksum(decodedByte)
-        	if (CRCByte == cs) {
-            	logTrace "Checksum Byte Verification Passed for Message #${state.rawMessageCount} '${it}': ${CRCByte} <> ${cs}"
-        	} else {
-            	logTrace "Checksum Byte Verification Failed for Message #${state.rawMessageCount} '${it}': ${CRCByte} <> ${cs}.  Message #${state.rawMessageCount} Ignored."
-				return
-        	}
-	        // Let's process the message
-        	logTrace "Unprocessed hexData for message ${state.rawMessageCount}: ${it}"
-        	messagePacket	= it[10..-5]
-        	logTrace "==> messagePacket for message ${state.rawMessageCount}: ${messagePacket}"
+            // Validate message integrity using CRC-8
+            hexData = it[2..-5]
+            decodedByte = hubitat.helper.HexUtils.hexStringToByteArray(hexData)
+            cs = calculateChecksum(decodedByte)
+            if (CRCByte == cs) {
+                logTrace "Checksum Byte Verification Passed for Message #${state.rawMessageCount} '${it}': ${CRCByte} <> ${cs}"
+            } else {
+                logTrace "Checksum Byte Verification Failed for Message #${state.rawMessageCount} '${it}': ${CRCByte} <> ${cs}. Message #${state.rawMessageCount} Ignored."
+                return
+            }
+            logTrace "Unprocessed hexData for message ${state.rawMessageCount}: ${it}"
+            messagePacket = it[10..-5]
+            logTrace "==> messagePacket for message ${state.rawMessageCount}: ${messagePacket}"
         } catch (java.lang.StringIndexOutOfBoundsException ex) {
             logErr "Error processing message packet: '${it}'"
             return
@@ -763,13 +804,18 @@ def parse(String message) {
             return
         }
         // Let's count, record and process the message if we have a registered function
-        if(BALBOA_MESSAGE_TYPES[messageType].program) {
+        if (BALBOA_MESSAGE_TYPES[messageType].program) {
             // Record this CRCByte with the messageType in a state map
-            state.lastMessage[messageType] = "${CRCByte}"            
+            state.lastMessage[messageType] = "${CRCByte}"
             logDebug "Calling ${BALBOA_MESSAGE_TYPES[messageType].name} Message Handler: ${BALBOA_MESSAGE_TYPES[messageType].program}"
-	        // Dynamically call the correct parsing program for the messagePacket hex number
+            // Dynamically call the correct parsing program for the messagePacket hex number
             def messageHandler = this.&(BALBOA_MESSAGE_TYPES[messageType].program)
             messageHandler(messagePacket)
+            if ((!state.expectConfig && messageType == '13') || (state.expectConfig && messageType == '23')) {
+                logDebug "Closing socket after receiving ${BALBOA_MESSAGE_TYPES[messageType].name}."
+                disconnect()
+                return
+            }
         } else {
             logDebug "No Message Handler is defined for ${BALBOA_MESSAGE_TYPES[messageType].name} for message ${state.processedMessageCount}: ${messagePacket}"
         }
@@ -785,22 +831,22 @@ void setSpaToLocalTime() {
 
 // Filter Cycle Response
 def parseFilterResponse(hexData) {
-    logDebug ("parseFilterResponse: '${hexData}'")
+    logDebug "parseFilterResponse: '${hexData}'"
     List hexParsed = hexData.split("(?<=\\G.{2})")
-    List eventData = []
     logTrace "==> hexParsed= ${hexParsed}"
     byte[] decodedByte = hubitat.helper.HexUtils.hexStringToByteArray(hexData)
-    def decoded = decodedByte.collect { it.abs().toString().padLeft(2,'0') }
-    decoded.eachWithIndex{ hexnum, idx ->
+    def decoded = decodedByte.collect { (it & 0xFF).toString().padLeft(2, '0') }
+    decoded.eachWithIndex { hexnum, idx ->
         logDebug "${idx}: ${hexnum}"
     }
-    boolean is24HourTime = device.currentValue("is24HourTime").toBoolean()
+    boolean is24HourTime = (device.currentValue("is24HourTime") ?: "false").toBoolean()
     logTrace "==> is24HourTime= ${is24HourTime}"
-    String Filter1Start = Date.parse("HHmm", "${decoded[0]}${decoded[1]}").format((is24HourTime.toBoolean())?"HH:mm":"h:mm a")
+    String timeFmt = is24HourTime ? "HH:mm" : "h:mm a"
+    String Filter1Start = Date.parse("HHmm", "${decoded[0]}${decoded[1]}").format(timeFmt)
     logTrace "==> Filter1Start= ${Filter1Start}"
-    makeEvent('Filter1Start',Filter1Start)
-    String Filter1Duration = Date.parse("HHmm", "${decoded[2]}${decoded[3]}").format("h:mm")
-    makeEvent('Filter1Duration',Filter1Duration)
+    makeEvent('Filter1Start', Filter1Start)
+    String Filter1Duration = Date.parse("HHmm", "${decoded[2]}${decoded[3]}").format("H:mm")
+    makeEvent('Filter1Duration', Filter1Duration)
     logTrace "==> Filter1Duration= ${Filter1Duration}"
 
     int filter4ByteInt = hubitat.helper.HexUtils.hexStringToInt(hexParsed[4])
@@ -809,33 +855,31 @@ def parseFilterResponse(hexData) {
     makeEvent('isFilter2Active', isFilter2Active)
     logTrace "==> isFilter2Active= ${isFilter2Active}"
     if (isFilter2Active) {
-    	String Filter2Start = Date.parse("HHmm", "${filter4ByteInt&127}${decoded[5]}").format((is24HourTime.toBoolean())?"HH:mm":"h:mm a")
-        makeEvent('Filter2Start',Filter2Start)
+        String f2Hour = (filter4ByteInt & 127).toString().padLeft(2, '0')
+        String Filter2Start = Date.parse("HHmm", "${f2Hour}${decoded[5]}").format(timeFmt)
+        makeEvent('Filter2Start', Filter2Start)
         logTrace "==> Filter2Start= ${Filter2Start}"
-	    String Filter2Duration = Date.parse("HHmm", "${decoded[6]}${decoded[7]}").format("h:mm")
-        makeEvent('Filter2Duration',Filter2Duration)
-    	logTrace "==> Filter2Duration= ${Filter2Duration}"
+        String Filter2Duration = Date.parse("HHmm", "${decoded[6]}${decoded[7]}").format("H:mm")
+        makeEvent('Filter2Duration', Filter2Duration)
+        logTrace "==> Filter2Duration= ${Filter2Duration}"
     }
 }
 
 // Information Response
 def parseInformationResponse(hexData) {
-    logDebug ("parseInformationResponse: '${hexData}'")
+    logDebug "parseInformationResponse: '${hexData}'"
     List decoded = hexData.split("(?<=\\G.{2})")
     logDebug "==> decoded= ${decoded}"
 }
 
 // WiFi Module Configuration Response  00:15:27:35:42:5d
 def parseWiFiModuleConfigurationResponse(hexData) {
-    logDebug ("parseWiFiModuleConfigurationResponse: '${hexData}'")
+    logDebug "parseWiFiModuleConfigurationResponse: '${hexData}'"
     List decoded = hexData.split("(?<=\\G.{2})")
     logDebug "==> decoded= ${decoded}"
-    String macAddress = '' // hexData[6..17]
-    for(int i = 3;i<9;i++) {
-        macAddress += "${decoded[i]} ${(i<8)?':':''}"
-    }
+    String macAddress = (3..8).collect { decoded[it] }.join(':')
     logDebug "==> macAddress= ${macAddress}"
-	makeEvent('macAddress',macAddress)
+    makeEvent('macAddress', macAddress)
 }
 
 def parsePanelData(hexData) {
@@ -844,12 +888,12 @@ def parsePanelData(hexData) {
 
     byte[] decoded = hubitat.helper.HexUtils.hexStringToByteArray(hexData)
     Map decodedMap = [:]
-    decoded.eachWithIndex{ hexnum, idx ->
-        decodedMap[("${idx}")] = "${hexnum.abs().toString().padLeft(2,'0')}"
+    decoded.eachWithIndex { hexnum, idx ->
+        decodedMap["${idx}"] = "${(hexnum & 0xFF).toString().padLeft(2, '0')}"
     }
     logDebug "${decodedMap}"
 
-    // check for different bytes excluding time bytes at [4,5]
+    // check for different bytes excluding time bytes at [3,4]
     if (state?.lastPanelData) {
         decodedMap['3'] = ''
         decodedMap['4'] = ''
@@ -858,85 +902,97 @@ def parsePanelData(hexData) {
     }
     state.lastPanelData = decodedMap
 
-    def now = new Date().format('EEE MMM d, h:mm:ss a',location.timeZone)
+    String updatedAtStr = new Date().format('EEE MMM d, h:mm:ss a', location.timeZone)
 
     makeEvent('presence', 'present')
     makeEvent('network', 'online')
 
     // Get Spa Time
-    String currentSpaTimeHour = decoded[3].toString().padLeft(2,"0")
-    String currentSpaTimeMinute = decoded[4].toString().padLeft(2,"0")
+    int spaHour = decoded[3] & 0xFF
+    int spaMinute = decoded[4] & 0xFF
+    String currentSpaTimeHour = spaHour.toString().padLeft(2, "0")
+    String currentSpaTimeMinute = spaMinute.toString().padLeft(2, "0")
     String is24HourTime = (decoded[9] & 2) != 0 ? "true" : "false"
-    String spaTime = Date.parse("HHmm", "${currentSpaTimeHour}${currentSpaTimeMinute}").format((is24HourTime.toBoolean())?"HH:mm":"h:mm a")
+    String spaTime = Date.parse("HHmm", "${currentSpaTimeHour}${currentSpaTimeMinute}").format((is24HourTime.toBoolean()) ? "HH:mm" : "h:mm a")
 
-    // Get delta mins from spa internal clock to hub's localtime
-    use(TimeCategory){
-        def locaTime = Date.parse("HH:mm",nowFormatted("HH:mm"))
-        logTrace "locaTime = ${locaTime}"
-        def spaHHmm = Date.parse("HH:mm","${currentSpaTimeHour}:${currentSpaTimeMinute}")
-        logTrace "spaHHmm = ${spaHHmm}"
-        def duration = TimeCategory.minus(spaHHmm, locaTime)
-        logTrace "duration= ${duration}"
-        Integer durationMins = duration.hours*60 + duration.minutes
-        logTrace "durationMins= ${durationMins}"
-        makeEvent("spaTimeLocalDeltaMins",durationMins.toInteger())
+    // Get delta mins from spa internal clock to hub's localtime (normalized to [-720, 720])
+    String[] localHHmm = nowFormatted("HH:mm").split(":")
+    int localTotalMins = (localHHmm[0] as Integer) * 60 + (localHHmm[1] as Integer)
+    int spaTotalMins = spaHour * 60 + spaMinute
+    int durationMins = spaTotalMins - localTotalMins
+    if (durationMins > 720) durationMins -= 1440
+    else if (durationMins < -720) durationMins += 1440
+    makeEvent("spaTimeLocalDeltaMins", durationMins)
+
+    if (settings.autoSyncClock) {
+        int threshold = (settings.clockDriftThresholdMins ?: 2) as Integer
+        if (Math.abs(durationMins) < threshold) {
+            state.clockSyncAttempts = 0
+        } else {
+            long nowMs = new Date().time
+            long lastSyncMs = (state.lastClockSyncMs ?: 0L) as Long
+            int attempts = (state.clockSyncAttempts ?: 0) as Integer
+            if ((nowMs - lastSyncMs) > 3600000L || attempts < 2) {
+                state.lastClockSyncMs = nowMs
+                state.clockSyncAttempts = attempts + 1
+                logInfo "Spa clock drift (${durationMins} mins) >= ${threshold} mins; syncing spa clock to hub local time (attempt ${state.clockSyncAttempts})"
+                runIn(2, 'setSpaToLocalTime')
+            }
+        }
     }
-    String  temperatureScale  = (decoded[9] & 1) == 0 ? "°F" : "°C"
+
+    String temperatureScale = (decoded[9] & 1) == 0 ? "°F" : "°C"
     logDebug "==> temperatureScale= ${temperatureScale}"
-    Integer actualTemperature = decoded[2]
-    Integer targetTemperature = decoded[20]
-    
+    def actualTemperature = (decoded[2] & 0xFF)
+    def targetTemperature = (decoded[20] & 0xFF)
+
     if (actualTemperature == 255) {
-        actualTemperature = device.currentValue("temperature") * (temperatureScale == "°C" ? 2.0F : 1)
+        def prevTemp = device.currentValue("temperature")
+        actualTemperature = (prevTemp != null) ? (prevTemp * (temperatureScale == "°C" ? 2.0F : 1)) : -1
     }
     if (temperatureScale == '°C') {
-        actualTemperature /= 2.0F
-        targetTemperature /= 2.0F
+        if (actualTemperature >= 0) actualTemperature = actualTemperature / 2.0F
+        targetTemperature = targetTemperature / 2.0F
     }
-    
-    // Set the thermostat mode & operting states for the spa and convert states to Hubitat attributes for thermostat     
-    def thermostatMode
-    def thermostatOperatingStatee
-    switch (true) {
-        case ((decoded[10] & 8) == 0): 
-        	thermostatMode = "heat"
-			thermostatOperatingState = "idle"
-        break
-        case ((decoded[10] & 8) == 8):
-        	thermostatMode = "heat"
-			thermostatOperatingState = "heating"
-        break
-        case ((decoded[10] & 16) == 16):
-        	thermostatMode = "heat"
-    		thermostatOperatingState = "pending heat"
-        break
-        default:
-	        logErr "==> Received an unexpected spa thermostatMode state: hexdecoded[10]= ${decoded[10]}"
-  	     	thermostatMode = "off"
-    		thermostatOperatingState = "idle"
-          break
-    }                       
+
+    // Set the thermostat mode & operating states for the spa
+    String thermostatMode
+    String thermostatOperatingState
+    if ((decoded[10] & 16) == 16) {
+        thermostatMode = "heat"
+        thermostatOperatingState = "pending heat"
+    } else if ((decoded[10] & 8) == 8) {
+        thermostatMode = "heat"
+        thermostatOperatingState = "heating"
+    } else if ((decoded[10] & 8) == 0) {
+        thermostatMode = "heat"
+        thermostatOperatingState = "idle"
+    } else {
+        logErr "==> Received an unexpected spa thermostatMode state: hexdecoded[10]= ${decoded[10]}"
+        thermostatMode = "off"
+        thermostatOperatingState = "idle"
+    }
     makeEvent('thermostatMode', thermostatMode)
-    makeEvent('temperatureScale',temperatureScale)
+    makeEvent('temperatureScale', temperatureScale)
     makeEvent('thermostatOperatingState', thermostatOperatingState)
 
     // Set a state variable to track temperature scale
     state.temperatureScale = temperatureScale
-    
-    //heatingMode
-    def heatingMode = (decoded[10] & 4) == 4 ? "high" : "low"
 
-    def heatMode
-    switch (decoded[5]) {
+    // heatingMode
+    String heatingMode = (decoded[10] & 4) == 4 ? "high" : "low"
+
+    String heatMode
+    switch (decoded[5] & 0xFF) {
         case 0:
-        heatMode = "Ready"
-        break;
+            heatMode = "Ready"
+            break
         case 1:
-        heatMode = "Rest"
-        break;
+            heatMode = "Rest"
+            break
         case 2:
-        heatMode = "Ready in Rest"
-        break;
+            heatMode = "Ready in Rest"
+            break
         default:
             heatMode = "None"
     }
@@ -945,285 +1001,201 @@ def parsePanelData(hexData) {
         makeEvent('temperature', actualTemperature, temperatureScale, 'actual spa temperature')
         makeEvent('temperatureFormatted', "${actualTemperature}${temperatureScale}")
         makeEvent('heatingSetpoint', targetTemperature, temperatureScale, 'target spa temperature')
-	    makeEvent('heatingSetpointFormatted', "${targetTemperature}${temperatureScale}")
+        makeEvent('heatingSetpointFormatted', "${targetTemperature}${temperatureScale}")
         makeEvent('thermostatSetpoint', targetTemperature, temperatureScale, 'target spa temperature')
     }
 
-    def filterMode
+    String filterMode
     switch (decoded[9] & 12) {
         case 4:
-        filterMode = "Cycle 1"
-        break;
+            filterMode = "Cycle 1"
+            break
         case 8:
-        filterMode = "Cycle 2"
-        break;
+            filterMode = "Cycle 2"
+            break
         case 12:
-        filterMode = "Cycle 1 & 2"
-        break;
+            filterMode = "Cycle 1 & 2"
+            break
         case 0:
         default:
             filterMode = "off"
     }
-    makeEvent("filterMode",filterMode)
+    makeEvent("filterMode", filterMode)
 
     // Spa Pumps
-    def pumpState0 // Circulation Pump
+    String pumpState0
     def accessory = 'Pump0'
-    if(null != state.spaConfiguration && state.spaConfiguration.containsKey(accessory)) {
-        if (state.spaConfiguration[accessory].installed) {
-            switch (decoded[13] & 2) { // Pump 0
-                case 2:
-                pumpState0 = "Active"
-                break
-                default:
-                    pumpState0 = "Inactive"
-            }
-            makeEvent(accessory, pumpState0)
-        }
+    if (state.spaConfiguration?.get(accessory)?.installed) {
+        pumpState0 = ((decoded[13] & 2) == 2) ? "Active" : "Inactive"
+        makeEvent(accessory, pumpState0)
     }
 
-    def pumpState1
+    String pumpState1
     accessory = 'Pump1'
-    if(null != state.spaConfiguration && state.spaConfiguration.containsKey(accessory)) {
-        if (state.spaConfiguration[accessory].installed) {
-            switch (decoded[11] & 3) { // Pump 1
-                case 1:
-                pumpState1 = "Low"
-                break
-                case 2:
-                pumpState1 = "High"
-                break
-                default:
-                    pumpState1 = "off"
-            }
-            makeEvent(accessory, pumpState1)
+    if (state.spaConfiguration?.get(accessory)?.installed) {
+        switch (decoded[11] & 3) {
+            case 1: pumpState1 = "Low"; break
+            case 2: pumpState1 = "High"; break
+            default: pumpState1 = "off"
         }
+        makeEvent(accessory, pumpState1)
+        syncComponentChild(accessory, pumpState1 != "off")
     }
 
-    def pumpState2
+    String pumpState2
     accessory = 'Pump2'
-    if(null != state.spaConfiguration && state.spaConfiguration.containsKey(accessory)) {
-        if (state.spaConfiguration[accessory].installed) {
-            switch (decoded[11] & 12) { // Pump 2
-                case 4:
-                pumpState2 = "Low"
-                break
-                case 8:
-                pumpState2 = "High"
-                break
-                default:
-                    pumpState2 = "off"
-            }
-            makeEvent(accessory, pumpState2)
+    if (state.spaConfiguration?.get(accessory)?.installed) {
+        switch (decoded[11] & 12) {
+            case 4: pumpState2 = "Low"; break
+            case 8: pumpState2 = "High"; break
+            default: pumpState2 = "off"
         }
+        makeEvent(accessory, pumpState2)
+        syncComponentChild(accessory, pumpState2 != "off")
     }
 
-    def pumpState3
+    String pumpState3
     accessory = 'Pump3'
-    if(null != state.spaConfiguration && state.spaConfiguration.containsKey(accessory)) {
-        if (state.spaConfiguration[accessory].installed) {
-            switch (decoded[11] & 48) { // Pump 3
-                case 16:
-                pumpState3 = "Low"
-                break
-                case 32:
-                pumpState3 = "High"
-                break
-                default:
-                    pumpState3 = "off"
-            }
-            makeEvent(accessory, pumpState3)
+    if (state.spaConfiguration?.get(accessory)?.installed) {
+        switch (decoded[11] & 48) {
+            case 16: pumpState3 = "Low"; break
+            case 32: pumpState3 = "High"; break
+            default: pumpState3 = "off"
         }
+        makeEvent(accessory, pumpState3)
+        syncComponentChild(accessory, pumpState3 != "off")
     }
 
-    def pumpState4
+    String pumpState4
     accessory = 'Pump4'
-    if(null != state.spaConfiguration && state.spaConfiguration.containsKey(accessory)) {
-        if (state.spaConfiguration[accessory].installed) {
-            switch (decoded[11] & 192) { // Pump 4
-                case 64:
-                pumpState4 = "Low"
-                break
-                case 128:
-                pumpState4 = "High"
-                break
-                default:
-                    pumpState4 = "off"
-            }
+    if (state.spaConfiguration?.get(accessory)?.installed) {
+        switch (decoded[11] & 192) {
+            case 64: pumpState4 = "Low"; break
+            case 128: pumpState4 = "High"; break
+            default: pumpState4 = "off"
+        }
         makeEvent(accessory, pumpState4)
-        }
+        syncComponentChild(accessory, pumpState4 != "off")
     }
 
-    def pumpState5
+    String pumpState5
     accessory = 'Pump5'
-    if(null != state.spaConfiguration && state.spaConfiguration.containsKey(accessory)) {
-        if (state.spaConfiguration[accessory].installed) {
-            switch (decoded[12] & 3) {
-                case 1:
-                pumpState5 = "Low"
-                break
-                case 2:
-                pumpState5 = "High"
-                break
-                default:
-                    pumpState5 = "off"
-            }
-            makeEvent(accessory, pumpState5)
+    if (state.spaConfiguration?.get(accessory)?.installed) {
+        switch (decoded[12] & 3) {
+            case 1: pumpState5 = "Low"; break
+            case 2: pumpState5 = "High"; break
+            default: pumpState5 = "off"
         }
+        makeEvent(accessory, pumpState5)
+        syncComponentChild(accessory, pumpState5 != "off")
     }
 
-    def pumpState6
+    String pumpState6
     accessory = 'Pump6'
-    if(null != state.spaConfiguration && state.spaConfiguration.containsKey(accessory)) {
-        if (state.spaConfiguration[accessory].installed) {
+    if (state.spaConfiguration?.get(accessory)?.installed) {
         switch (decoded[12] & 12) {
-                case 4:
-                pumpState6 = "Low"
-                break
-                case 8:
-                pumpState6 = "High"
-                break
-                default:
-                    pumpState6 = "off"
-            }
-            makeEvent(accessory, pumpState6)
+            case 4: pumpState6 = "Low"; break
+            case 8: pumpState6 = "High"; break
+            default: pumpState6 = "off"
         }
+        makeEvent(accessory, pumpState6)
+        syncComponentChild(accessory, pumpState6 != "off")
     }
 
-	// If any pump is on, switch = on
-        if (decoded[11] > 0 && decoded[12] > 0) {
+    // If any pump (1-6) is on, switch & Pumps = on
+    if ((decoded[11] & 0xFF) > 0 || (decoded[12] & 0x0F) > 0) {
         makeEvent("switch", "on")
-        makeEvent("pumps", "on")
+        makeEvent("Pumps", "on")
     } else {
         makeEvent("switch", "off")
-        makeEvent("pumps", "off")
+        makeEvent("Pumps", "off")
     }
 
-    // As far as I know, blower is not controllable, just report state in parent child device?
-    def blowerState
+    // Blower
+    String blowerState
     accessory = 'Blower'
-    if(null != state.spaConfiguration && state.spaConfiguration.containsKey(accessory)) {
-        if (state.spaConfiguration[accessory].installed) {
-            switch (decoded[17] & 12) {
-                case 4:
-                blowerState = "Low"
-                break
-                case 8:
-                blowerState = "Medium"
-                break
-                case 12:
-                blowerState = "High"
-                break
-                default:
-                    blowerState = "off"
-            }
-            makeEvent(accessory, blowerState)
+    if (state.spaConfiguration?.get(accessory)?.installed) {
+        switch (decoded[17] & 12) {
+            case 4: blowerState = "Low"; break
+            case 8: blowerState = "Medium"; break
+            case 12: blowerState = "High"; break
+            default: blowerState = "off"
         }
+        makeEvent(accessory, blowerState)
     }
 
     // Lights
-    def light1
+    String light1
     accessory = 'Light1'
-    if(null != state.spaConfiguration && state.spaConfiguration.containsKey(accessory)) {
-        if (state.spaConfiguration[accessory].installed) {
-	        light1 = (((decoded[14] & 3) != 0)?'on':'off')
-    	    makeEvent(accessory, light1)
-        }
+    if (state.spaConfiguration?.get(accessory)?.installed) {
+        light1 = ((decoded[14] & 3) != 0) ? 'on' : 'off'
+        makeEvent(accessory, light1)
+        syncComponentChild(accessory, light1 == 'on')
     }
-    def light2
+    String light2
     accessory = 'Light2'
-    if(null != state.spaConfiguration && state.spaConfiguration.containsKey(accessory)) {
-        if (state.spaConfiguration[accessory].installed) {
-	        light2 = (((decoded[14] & 12) != 0)?'on':'off')
-    	    makeEvent(accessory, light2)
-        }
+    if (state.spaConfiguration?.get(accessory)?.installed) {
+        light2 = ((decoded[14] & 12) != 0) ? 'on' : 'off'
+        makeEvent(accessory, light2)
+        syncComponentChild(accessory, light2 == 'on')
     }
 
-    if (light1 == 'on' || light2 == 'on') makeEvent(lights, 'on')
-    else makeEvent('lights', 'off')
-
+    if (light1 == 'on' || light2 == 'on') makeEvent('Lights', 'on')
+    else makeEvent('Lights', 'off')
 
     // Mister
-    def misterState
+    String misterState
     accessory = 'Mister'
-    if(null != state.spaConfiguration && state.spaConfiguration.containsKey(accessory)) {
-        if (state.spaConfiguration[accessory].installed) {
-	        misterState = ((decoded[15] & 1) != 0)
-    	    makeEvent(accessory, misterState)
-        }
+    if (state.spaConfiguration?.get(accessory)?.installed) {
+        misterState = ((decoded[15] & 1) != 0) ? 'on' : 'off'
+        makeEvent(accessory, misterState)
     }
 
-    def wifiState
+    String wifiState
     switch (decoded[16] & 240) {
-        case 0:
-        wifiState = "WiFi OK"
-        break
-        case 16:
-        wifiState = "WiFi Spa Not Communicating"
-        break
-        case 32:
-        wifiState = "WiFi Startup"
-        break
-        case 48:
-        wifiState = "WiFi Prime"
-        break
-        case 64:
-        wifiState = "WiFi Hold"
-        break
-        case 80:
-        wifiState = "WiFi Panel"
-        break
-        default:
-            wifiState = "Unknown"
-    }
-
-    def pumpStateStatus
-    if (decoded[15] < 1 && decoded[16] < 1 && (decoded[17] & 3) < 1) {
-        pumpStateStatus = "off"
-    } else {
-        pumpStateStatus = thermostatMode
+        case 0: wifiState = "WiFi OK"; break
+        case 16: wifiState = "WiFi Spa Not Communicating"; break
+        case 32: wifiState = "WiFi Startup"; break
+        case 48: wifiState = "WiFi Prime"; break
+        case 64: wifiState = "WiFi Hold"; break
+        case 80: wifiState = "WiFi Panel"; break
+        default: wifiState = "WiFi Unknown"
     }
 
     // Create events for the parent spa device
-    def heatModeText = "${thermostatOperatingState} to ${targetTemperature}${temperatureScale}"
-    makeEvent("spaStatus",                	"${heatModeText}" 	)
-    makeEvent("heatMode",                 	"${heatMode}"     	)
-    makeEvent("tempRange",                 	"${heatingMode}"  	)
-    makeEvent("updated_at",                	"${now}"			)
-    makeEvent("online",                    	"online"			)
-    makeEvent("wifiState",                 	"${wifiState}"		)
-    makeEvent("spaTime",  					"${spaTime}" 		)
-    makeEvent("is24HourTime",  				"${is24HourTime}"	)
+    String heatModeText = "${thermostatOperatingState} to ${targetTemperature}${temperatureScale}"
+    makeEvent("spaStatus", "${heatModeText}")
+    makeEvent("heatMode", "${heatMode}")
+    makeEvent("tempRange", "${heatingMode}")
+    makeEvent("updated_at", updatedAtStr)
+    makeEvent("wifiState", "${wifiState}")
+    makeEvent("spaTime", "${spaTime}")
+    makeEvent("is24HourTime", "${is24HourTime}")
 
     def spaItems = [
-        "Temp"                       : "${actualTemperature}",
-        "Spa Time"                   : "${spaTime}",
-        "Temp - Target"              : "${targetTemperature}",
-        "Filter Mode"                : "${filterMode}",
-        "Heating Mode"               : "${heatingMode}",
-        "Light 1"                    : "${(light1)?:null}",
-        "Light 2"                    : "${(light2)?:null}",
-        "Heat Mode"                  : "${heatMode}",
-        "Heating State"              : "${thermostatOperatingState}",
-        "Pump 0 (Circ)"              : "${(pumpState0)?:null}",
-        "Pump 1"                     : "${(pumpState1)?:null}",
-        "Pump 2"                     : "${(pumpState2)?:null}",
-        "Pump 3"                     : "${(pumpState3)?:null}",
-        "Pump 4"                     : "${(pumpState4)?:null}",
-        "Pump 5"                     : "${(pumpState5)?:null}",
-        "Pump 6"                     : "${(pumpState6)?:null}",
-        "Blower"	                 : "${(blowerState)?:null}",
-        "Mister"    	             : "${(misterState)?:null}",
-        "Updated"                    : "${nowFormatted('h:mm:ss a')}"
+        "Temp"          : "${actualTemperature}",
+        "Spa Time"      : "${spaTime}",
+        "Temp - Target" : "${targetTemperature}",
+        "Filter Mode"   : "${filterMode}",
+        "Heating Mode"  : "${heatingMode}",
+        "Light 1"       : "${light1 ?: null}",
+        "Light 2"       : "${light2 ?: null}",
+        "Heat Mode"     : "${heatMode}",
+        "Heating State" : "${thermostatOperatingState}",
+        "Pump 0 (Circ)" : "${pumpState0 ?: null}",
+        "Pump 1"        : "${pumpState1 ?: null}",
+        "Pump 2"        : "${pumpState2 ?: null}",
+        "Pump 3"        : "${pumpState3 ?: null}",
+        "Pump 4"        : "${pumpState4 ?: null}",
+        "Pump 5"        : "${pumpState5 ?: null}",
+        "Pump 6"        : "${pumpState6 ?: null}",
+        "Blower"        : "${blowerState ?: null}",
+        "Mister"        : "${misterState ?: null}",
+        "Updated"       : "${nowFormatted('h:mm:ss a')}"
     ]
-    
-    // Remove Pump 0 (Circ) if user specifies
-    logDebug "==> spaPanelTableRemovePump0= ${spaPanelTableRemovePump0}"
-    if ((settings.spaPanelTableRemovePump0 == null || settings.spaPanelTableRemovePump0 == true)) {
- 		def keysToRemove = ['Pump 0 (Circ)']
-	    logDebug "==> spaItem before ${spaItems}"
- 		spaItems.keySet().removeAll(keysToRemove) 
-	    logDebug "==> spaItem after ${spaItems}"
+
+    if (settings.spaPanelTableRemovePump0 == null || settings.spaPanelTableRemovePump0 == true) {
+        spaItems.remove('Pump 0 (Circ)')
     }
 
     makeEvent('TTSmessage', "Your spa is currently at ${actualTemperature}${temperatureScale} and is ${heatModeText.uncapitalize()}.")
@@ -1234,23 +1206,24 @@ def parsePanelData(hexData) {
 
 void makeSpaPanelTable(data) {
     logTrace "Creating Device panel HTML table"
-    def spaItems = data.findAll{ it.value!='null' }
+    def spaItems = data.findAll { it.value != 'null' && it.value != null }
 
     // CSS Definition for Table Styling
-    def tableCSS = "table.bt{border:2px solid #FFA500;text-align:center;border-collapse:collapse;width:100%}table.bt td,table.bt th{border:1px solid #000000;padding:2px 2px}table.bt thead{border-bottom:2px solid #000000}table.bt thead th{font-weight:bold;color:#FF0000;text-align:center}.g{background-color:green}.r{background-color:red}.b{background-color:blue}"
+    String tableCSS = "table.bt{border:2px solid #FFA500;text-align:center;border-collapse:collapse;width:100%}table.bt td,table.bt th{border:1px solid #000000;padding:2px 2px}table.bt thead{border-bottom:2px solid #000000}table.bt thead th{font-weight:bold;color:#FF0000;text-align:center}.g{background-color:green}.r{background-color:red}.b{background-color:blue}"
 
-    // Table Header
-    def tableHeader = "<table class=bt><thead><tr><th>Spa Device</th><th>Value</th><th>Spa Device</th><th>Value</tr></thead></tbody>"
-
-    //Table Footer
-    def tableFooter ="</tbody></tr></table>"
+    // Table Header & Footer
+    String tableHeader = "<table class=bt><thead><tr><th>Spa Device</th><th>Value</th><th>Spa Device</th><th>Value</th></tr></thead><tbody>"
+    String tableFooter = "</tbody></table>"
 
     // Table Rows
-    def row = new String [15]
-    Integer i = 0
-    Integer totalSpaItemsPerColumn = spaItems.size()/2 - 1
-    spaItems.sort().eachWithIndex { key, value, index ->
-        switch(value) {
+    int totalItems = spaItems.size()
+    int rowsPerCol = Math.max(1, Math.ceil(totalItems / 2.0) as Integer)
+    List<String> rowList = (0..<rowsPerCol).collect { "" }
+    int i = 0
+    spaItems.sort().each { key, value ->
+        String valStr = value?.toString() ?: ""
+        String cell
+        switch (valStr.toLowerCase()) {
             case 'high':
             case 'medium':
             case 'low':
@@ -1258,164 +1231,145 @@ void makeSpaPanelTable(data) {
             case 'heating':
             case 'on':
             case 'active':
-            case 'Ready':
+            case 'ready':
             case 'true':
-            case 'Yes':
-            value = "<td class=r>${value}</td>"
-            break
+            case 'yes':
+                cell = "<td class=r>${valStr}</td>"
+                break
             case 'off':
             case 'false':
             case 'idle':
             case 'cool':
             case 'cooling':
             case 'inactive':
-            case 'No':
-            value = "<td class=g>${value}</td>"
-            break
+            case 'no':
+                cell = "<td class=g>${valStr}</td>"
+                break
             default:
-                // Highlight high and low temperatures
                 if (key.startsWith('Temp')) {
-                    if (value.toInteger() >= 99) {
-                        value = "<td class=r>${value}${state.temperatureScale}</td>"
-                    } else {
-                        value = "<td class=b>${value}${state.temperatureScale}</td>"
-                    }
-                } else value = "<td>${value}</td>"
-            break
+                    BigDecimal numVal = valStr.isBigDecimal() ? valStr.toBigDecimal() : 0
+                    BigDecimal hotThreshold = (state.temperatureScale == '°C') ? 37.0 : 99.0
+                    String cls = (numVal >= hotThreshold) ? 'r' : 'b'
+                    cell = "<td class=${cls}>${valStr}${state.temperatureScale ?: ''}</td>"
+                } else {
+                    cell = "<td>${valStr}</td>"
+                }
+                break
         }
-
-        row[i++] += "<td>${key}</td>${value}"
-        if (index==totalSpaItemsPerColumn) i = 0
+        rowList[i] += "<td>${key}</td>${cell}"
+        i = (i + 1) % rowsPerCol
     }
-    def rows = ""
-    row.findAll{it}.each  {
-        rows += "<tr>${it.substring(4)}</tr>"
+    String rows = rowList.findAll { it }.collect { "<tr>${it}</tr>" }.join("")
+
+    // Write CSS styles to a local .css file on Hub once
+    String fullWebPathName = "http://${location.hub.localIP}/local/${FILENAME_CSS}"
+    if (!state.cssWritten) {
+        if (!fileExists(FILENAME_CSS)) writeFile(FILENAME_CSS, tableCSS)
+        state.cssWritten = true
+    }
+    String spaPanel = "<link rel='stylesheet' href=${fullWebPathName}>${tableHeader}${rows}${tableFooter}"
+
+    if (spaPanel.length() > 1024) {
+        logWarn "the spaPanelHTML attribute is ${spaPanel.length()} bytes. It will be truncated to 1024 bytes to fit on the HE dashboard"
     }
 
-    // Write CSS styles to a local .css file on Hub and update spaPanel to refere to external csss file
-    def fullWebPathName = "http://${location.hub.localIP}/local/${FILENAME_CSS}"
-    if (!fileExists(FILENAME_CSS)) writeFile(FILENAME_CSS, tableCSS)
-    spaPanel = "<html><head><link rel='stylesheet' href=${fullWebPathName}></head><body>${tableHeader}${rows}${tableFooter}</body></html>"
-
-    if (spaPanel.length()>1024) {
-        logWarn "the spaPanelHTML attribute is ${spaPanel.length()} bytes.  It which will be truncated to 1024 bytes to fit on the HE dashboard"
-    }
-
-    sendEvent(name:'spaPanelHTML',value: spaPanel.take(1024))
+    makeEvent('spaPanelHTML', spaPanel.take(1024))
 }
 
 
 // Decode the encoded configuration data received from Balboa
 def ParseDeviceConfigurationData(hexData) {
-    logDebug ("ParseDeviceConfigurationData(hexData)-> '${hexData}'")
+    logDebug "ParseDeviceConfigurationData(hexData)-> '${hexData}'"
     byte[] decoded = hubitat.helper.HexUtils.hexStringToByteArray(hexData)
-    decoded.eachWithIndex{ hexnum, idx ->
-        logTrace "${idx}: ${hexnum.abs().toString().padLeft(2,'0')}"
+    decoded.eachWithIndex { hexnum, idx ->
+        logTrace "${idx}: ${(hexnum & 0xFF).toString().padLeft(2, '0')}"
     }
 
     def pumpConfiguration = [:]
-    def accessory = 'Pump0'  // Blower
+    def accessory = 'Pump0'  // Circulation Pump
     if ((decoded[0] & 3) != 0) {
-        pumpConfiguration[accessory] = ['installed' : true ]
-        makeEvent(accessory,'Installed')
+        pumpConfiguration[accessory] = ['installed': true]
+        makeEvent(accessory, 'Installed')
     } else device.deleteCurrentState(accessory)
-    accessory =  'Pump1'
+    accessory = 'Pump1'
     if ((decoded[0] & 3) != 0) {
-    	pumpConfiguration[accessory] = ['installed' : true ]
-    	pumpConfiguration[accessory] << ['speeds':(decoded[0] & 2) == 2 ? '2' : '1']
-        makeEvent(accessory,'Installed')
+        pumpConfiguration[accessory] = ['installed': true, 'speeds': (decoded[0] & 2) == 2 ? '2' : '1']
+        makeEvent(accessory, 'Installed')
     } else device.deleteCurrentState(accessory)
-    accessory =  'Pump2'
+    accessory = 'Pump2'
     if ((decoded[0] & 12) != 0) {
-    	pumpConfiguration[accessory] = ['installed' : true ]
-    	pumpConfiguration[accessory] << ['speeds':(decoded[0] & 8) == 8 ? '2' : '1']
-        makeEvent(accessory,'Installed')
+        pumpConfiguration[accessory] = ['installed': true, 'speeds': (decoded[0] & 8) == 8 ? '2' : '1']
+        makeEvent(accessory, 'Installed')
     } else device.deleteCurrentState(accessory)
-    accessory =  'Pump3'
+    accessory = 'Pump3'
     if ((decoded[0] & 48) != 0) {
-    	pumpConfiguration[accessory] = ['installed' : true ]
-    	pumpConfiguration[accessory] << ['speeds':(decoded[0] & 58) == 8 ? '2' : '1']
-        makeEvent(accessory,'Installed')
+        pumpConfiguration[accessory] = ['installed': true, 'speeds': (decoded[0] & 32) == 32 ? '2' : '1']
+        makeEvent(accessory, 'Installed')
     } else device.deleteCurrentState(accessory)
-    accessory =  'Pump4'
+    accessory = 'Pump4'
     if ((decoded[0] & 192) != 0) {
-	    pumpConfiguration[accessory] = ['installed' : true ]
-    	pumpConfiguration[accessory] << ['speeds':(decoded[0] & 58) == 8 ? '2' : '1']
-        makeEvent(accessory,'Installed')
+        pumpConfiguration[accessory] = ['installed': true, 'speeds': (decoded[0] & 128) == 128 ? '2' : '1']
+        makeEvent(accessory, 'Installed')
     } else device.deleteCurrentState(accessory)
-    accessory =  'Pump5'
-    if  ((decoded[1] & 3) != 0) {
-    	pumpConfiguration[accessory] = ['installed' : true ]
-    	pumpConfiguration[accessory] << ['speeds':(decoded[1] & 2) == 2 ? '2' : '1']
-        makeEvent(accessory,'Installed')
+    accessory = 'Pump5'
+    if ((decoded[1] & 3) != 0) {
+        pumpConfiguration[accessory] = ['installed': true, 'speeds': (decoded[1] & 2) == 2 ? '2' : '1']
+        makeEvent(accessory, 'Installed')
     } else device.deleteCurrentState(accessory)
-    accessory =  'Pump6'
-    if ((decoded[1] & 192) != 0) {
-    	pumpConfiguration[accessory] = ['installed' : true ]
-    	pumpConfiguration[accessory] << ['speeds':(decoded[1] & 8) == 8 ? '2' : '1']
-        makeEvent(accessory,'Installed')
+    accessory = 'Pump6'
+    if ((decoded[1] & 12) != 0) {
+        pumpConfiguration[accessory] = ['installed': true, 'speeds': (decoded[1] & 8) == 8 ? '2' : '1']
+        makeEvent(accessory, 'Installed')
     } else device.deleteCurrentState(accessory)
-    accessory =  'Light1'
+    accessory = 'Light1'
     if ((decoded[2] & 3) != 0) {
-        pumpConfiguration[accessory] = ['installed' : true ]
-        makeEvent(accessory,'Installed')
+        pumpConfiguration[accessory] = ['installed': true]
+        makeEvent(accessory, 'Installed')
     } else device.deleteCurrentState(accessory)
-    accessory =  'Light2'
+    accessory = 'Light2'
     if ((decoded[2] & 192) != 0) {
-        pumpConfiguration[accessory] = ['installed' : true ]
-        makeEvent(accessory,'Installed')
+        pumpConfiguration[accessory] = ['installed': true]
+        makeEvent(accessory, 'Installed')
     } else device.deleteCurrentState(accessory)
-    accessory =  'Blower'
+    accessory = 'Blower'
     if ((decoded[3] & 1) != 0) {
-        pumpConfiguration[accessory] = ['installed' : true ]
-        makeEvent(accessory,'Installed')
+        pumpConfiguration[accessory] = ['installed': true]
+        makeEvent(accessory, 'Installed')
     } else device.deleteCurrentState(accessory)
-    accessory =  'Aux1'
+    accessory = 'Aux1'
     if ((decoded[4] & 1) != 0) {
-        pumpConfiguration[accessory] = ['installed' : true ]
-        makeEvent(accessory,'Installed')
+        pumpConfiguration[accessory] = ['installed': true]
+        makeEvent(accessory, 'Installed')
     } else device.deleteCurrentState(accessory)
-    accessory =  'Aux2'
+    accessory = 'Aux2'
     if ((decoded[4] & 2) != 0) {
-        pumpConfiguration[accessory] = ['installed' : true ]
-        makeEvent(accessory,'Installed')
+        pumpConfiguration[accessory] = ['installed': true]
+        makeEvent(accessory, 'Installed')
     } else device.deleteCurrentState(accessory)
-    accessory =  'Mister'
+    accessory = 'Mister'
     if ((decoded[4] & 16) != 0) {
-        pumpConfiguration[accessory] = ['installed' : true ]
-        makeEvent(accessory,'Installed')
+        pumpConfiguration[accessory] = ['installed': true]
+        makeEvent(accessory, 'Installed')
     } else device.deleteCurrentState(accessory)
 
     logDebug "==> pumpConfiguration Map= ${pumpConfiguration}"
     state.spaConfiguration = pumpConfiguration
     logDebug "ParseDeviceConfigurationData() state.spaConfiguration= ${state.spaConfiguration}"
+    runIn(2, 'getFilterSchedule')
 }
 
-def makeEvent(name, value) {
-    sendEvent(name : name, value : value)
-    Map data = [:]	
-    data['name'] 	= name
-    data['value'] 	= value
-	logTrace "<span style='color:green'><b>sendEvent(</b>${data})</span>"
-}
-
-def makeEvent(name, value, unit) {
-    sendEvent(name : name, value : value, unit : unit)
-    Map data = [:]	
-    data['name'] 	= name
-    data['value'] 	= value
-    data['unit'] 	= unit
-	logTrace "<span style='color:green'><b>sendEvent(</b>${data})</span>"
-}
-
-def makeEvent(name, value, unit, descriptionText) {
-    sendEvent( name : name, value : value, unit : unit, descriptionText : descriptionText)
-    Map data = [:]	
-    data['name'] 	= name
-    data['value'] 	= value
-	data['unit'] = unit
-    data['descriptionText'] = descriptionText
-	logTrace "<span style='color:green'><b>sendEvent(</b>${data})</span>"
+def makeEvent(name, value, unit = null, descriptionText = null) {
+    if (name != 'updated_at' && name != 'spaSessionStatus') {
+        def cur = device.currentValue(name)
+        if (cur != null && cur.toString() == value?.toString()) {
+            return
+        }
+    }
+    Map evt = [name: name, value: value]
+    if (unit != null) evt.unit = unit
+    if (descriptionText != null) evt.descriptionText = descriptionText
+    sendEvent(evt)
+    logTrace "<span style='color:green'><b>sendEvent(</b>${evt})</span>"
 }
 
 def calculateChecksum(byte[] data) {
@@ -1461,42 +1415,47 @@ def connect() {
 }
 
 boolean socket_connect() {
+    if (!settings.ipaddress) {
+        logErr "Socket Connect Error: Device IP address is not configured."
+        return false
+    }
     // Check contact status for socket_status
-    if (device.currentValue("contact")=='open') {
+    if (device.currentValue("contact") == 'open') {
         logInfo "Socket is already open"
         return true
     }
 
-    logDebug "Socket Connect(): ${settings.ipaddress} at port: ${port} for a delay reads of ${socketConnectReadDelay} millisecs"
-	boolean rc = false //default
-    // Reset device message received counter to 0
+    int readDelayMs = (socketConnectReadDelay ?: SOCKET_CONNECT_READ_DELAY) as Integer
+    int waitSecs = (readWaitSecs ?: READ_WAIT_SECS) as Integer
+    int portNum = (port ?: '4257').toInteger()
+
+    logDebug "Socket Connect(): ${settings.ipaddress} at port: ${portNum} for a delay reads of ${readDelayMs} millisecs"
+    boolean rc = false
+    // Reset device message counters and per-session CRC cache
     state.processedMessageCount = 0
     state.rawMessageCount = 0
+    state.lastMessage = [:]
 
-    // Dead man fail safe in case we cannot close the socket via number of messages
-    logDebug "Reset auto closing device socket timer to ${readWaitSecs} secs"
-    runIn(readWaitSecs,'socket_close')
-    
-    // Default port: 4257 for Spa WiFi 
-
-	try {
+    try {
         logInfo "Attempting to connect to Spa device..."
-		interfaces.rawSocket.connect(settings.ipaddress, port.toInteger(), byteInterface: true, readDelay: socketConnectReadDelay)
+        interfaces.rawSocket.connect(settings.ipaddress, portNum, byteInterface: true, readDelay: readDelayMs)
         rc = true
-	} catch (java.net.NoRouteToHostException ex) {
-		logErr "Error: No Route To Host - Can't connect to spa, make sure spa is on the network.  Exiting.."
-		rc = false
-	} catch (java.net.SocketTimeoutException ex) {
-		logErr "Error: Socket Timeout - Can't connect to spa's socket, make sure spa is online and accepting network connections.  Exiting.."
-		rc = false
-	} catch (e) {
-		logErr "Error: $e"
-		rc = false
+        logDebug "Reset auto closing device socket timer to ${waitSecs} secs"
+        runIn(waitSecs, 'socket_close')
+    } catch (java.net.NoRouteToHostException ex) {
+        logErr "Error: No Route To Host - Can't connect to spa, make sure spa is on the network. Exiting.."
+        rc = false
+    } catch (java.net.SocketTimeoutException ex) {
+        logErr "Error: Socket Timeout - Can't connect to spa's socket, make sure spa is online and accepting network connections. Exiting.."
+        rc = false
+    } catch (e) {
+        logErr "Error: $e"
+        rc = false
     }
     logDebug "Socket_Connect rc=${rc}"
-    makeEvent('contact', (rc)?'open':'closed')
-    makeEvent('presence', (rc)?'present':'not present')
-    makeEvent('network', (rc)?'online':'offline')
+    makeEvent('contact', rc ? 'open' : 'closed')
+    makeEvent('presence', rc ? 'present' : 'not present')
+    makeEvent('network', rc ? 'online' : 'offline')
     return rc
 }
 
@@ -1507,24 +1466,30 @@ def send(message) {
 }
 
 def socket_write(message) {
-    logDebug  "Socket: write - ${settings.ipaddress}:${port} → message:  ${message}"
-    boolean rc = false //default
-    if (message==null || message == '') {
+    logDebug "Socket: write - ${settings.ipaddress}:${port} → message: ${message}"
+    if (message == null || message == '') {
         logErr "socket_write(${message}): message argument is either null or empty, exiting..."
         return false
     }
-    // Open socket if closed
-    if (device.currentValue("contact")=='closed') socket_connect()
+    // Open socket if not open
+    if (device.currentValue("contact") != 'open') {
+        if (!socket_connect()) {
+            logErr "socket_write aborted: failed to connect to spa at ${settings.ipaddress}:${port}"
+            return false
+        }
+    }
 
-    logDebug "Reset auto closing socket timer to ${readWaitSecs} secs to send '${message}' to device"
-    runIn(readWaitSecs,'socket_close')
+    int waitSecs = (readWaitSecs ?: READ_WAIT_SECS) as Integer
+    logDebug "Reset auto closing socket timer to ${waitSecs} secs to send '${message}' to device"
+    runIn(waitSecs, 'socket_close')
 
+    boolean rc = false
     try {
-		interfaces.rawSocket.sendMessage(message)
+        interfaces.rawSocket.sendMessage(message)
         rc = true
-	} catch (e) {
+    } catch (e) {
         logErr "Error sending ${message} to device: $e"
-	}
+    }
     return rc
 }
 
@@ -1534,6 +1499,8 @@ def disconnect() {
 }
 
 boolean socket_close() {
+    unschedule('socket_close')
+    state.expectConfig = false
     if (device.currentValue("presence") == 'present') logInfo  "Command complete at ${nowFormatted('MMM-dd h:mm:ss a')}"
     else {
         def msg = "Command Error: The Spa is 'Offline' at ${nowFormatted('MMM-dd h:mm:ss a')}"

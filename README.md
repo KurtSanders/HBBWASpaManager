@@ -1,69 +1,103 @@
-# HB BWA SpaManager (Cloud Control & Direct Local TCP)
-<img src="https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/master/images/hot-tub.png" width="50"> (forked from [richardpowellus/HBBWASpaManager](https://github.com/richardpowellus/HBBWASpaManager)
+# HB BWA Spa Manager (Direct Local TCP & Legacy Cloud Control)
 
-### Version Notes
+<img src="https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/master/images/hot-tub.png" width="50"> Forked from [richardpowellus/HBBWASpaManager](https://github.com/richardpowellus/HBBWASpaManager)
 
 * [Change-log & Version Release Features](https://github.com/KurtSanders/HBBWASpaManager/wiki/Features-by-Version)
+* [Hubitat Community Support Thread](https://community.hubitat.com/t/release-bwa-spamanager-cloud-control-direct-local-tcp/151421)
 
 <img src="https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/master/images/Cloud-Local-Connection-Image.jpg">
 
----
-
 <img src="https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/master/images/HE%20dashboard-1.jpg">
 
-* Dashboard and Tiles shown above have been customized by [Tile Master by BPTWorld apps](https://community.hubitat.com/t/release-tile-master-display-multiple-devices-that-can-be-controlled-from-the-tile/23140)
+*Dashboard and Tiles shown above customized with [Tile Master by BPTWorld](https://community.hubitat.com/t/release-tile-master-display-multiple-devices-that-can-be-controlled-from-the-tile/23140).*
 
-<img src="https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/master/images/readme.png" width="50">[Change-log & Version Release Features](https://github.com/KurtSanders/HBBWASpaManager/wiki/Features-by-Version)
+---
 
-<img src="https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/master/images/Help-Logo.png" width="50">[Hubitat Community Support Thread](https://community.hubitat.com/t/release-hb-bwa-spamanager/128842)
+## Key Features
 
-### Integrate your spa to the Hubitat environment with the following features:
-1. View real-time spa temperature
-2. Set spa heating SetPoint temperature
-2. Turn on/off lights, pumps, mister, and aux devices
-3. Set & automate High/Low & Rest/Ready modes to reduce energy usage
-4. Set spa's internal clock to hubitat local time
-4. Control spa using Hubitat's Rules/WebCore
+- ### **Local Control**
 
-#### Requirements
-- Spa equipped with a one of the following:
-  - [Balboa Cloud Spa Controller](https://www.amazon.com/Balboa-Water-Group-50350-07-Systems/dp/B0C89NLVCW/ref=sr_1_1?crid=1FLAWP3J3MUQP&dib=eyJ2IjoiMSJ9.3Uf1IdmEfGQFHeyD_LYQy1uF3Q_OyGZBz-9T0A4Du4UCVRb6lTdEGwR7xncq7IuCGIXiwvQCwPgsaIpqDM-7DM1ou8GSc1Ty7NjgJeE18TUdmd6VyaX6pTE-2GSoZ1gmaMi-QrIgUkCU82tEL-V73f6_fI6VKiWVnqkTR0IPM-a_4QMUAOW5pYq8rjF1Ww-aAtIzgsY5vMTLSgMqY85mvgW0weQCd_LaMdWBO6b4XSc._fD5IJd7n4BqA4eBVjncSH3Np0lqbCB82zh4IUAXsws&dib_tag=se&keywords=balboa+spa+module&qid=1741981337&sprefix=balboa+spa+module%2Caps%2C129&sr=8-1)
-  - [Elfin EW11 RS485](https://community.hubitat.com/t/release-new-bwa-spa-manager-cloud-control-direct-local-tcp/151421#p-1363399-these-two-hubitat-applications-allow-one-to-connect-to-a-network-connected-spa-which-is-equipped-with-a-1) 
-      - The EW11 device is a better low-cost option, IMHO, is economical, stable, and configurable via the EW11 WebPage.
-      - Requires some basic technical expertise to install on the spa circuit board plug-n-play connector.
-- [Hubitat Hub](https://hubitat.com/)
-- [Hubitat Package Manager](https://hubitatpackagemanager.hubitatcommunity.com/)
+  * **100% Local TCP Control (No Cloud Required):** Communicates directly with your Balboa BP-series spa over your LAN using an **Elfin EW11 RS485-to-WiFi** adapter (or Balboa WiFi module on port `4257`).
 
-### How to install BWA Spa Manager: (Select the desired connection type below)
-#### Cloud Control (Unsupported Legacy)
-* Uses BWA's Paid Cloud Server for API access
+  * **Fast Poll & Auto-Close (~0.5s):** Routine `refresh()` polls close the TCP socket immediately after receiving and validating the first fresh `Panel Status Update` (`0x13`) frame, minimizing socket hold time and hub overhead.
+    * **Real-Time Child Switch Sync (Alexa / Google Home / Dashboards):**
+      * `Generic Component Switch` child devices (`Pump1`–`Pump6`, `Light1`–`Light2`) reflect the spa's actual live state and handle multi-speed pump cycling (`Off` / `Low` / `High`) idempotently.
+      * Optional momentary `Balboa Hot Tub Local Child Switch` devices for quick Dashboard tiles, Rule Machine, and WebCore triggers (`Refresh`, `Ready`/`Rest`, `High`/`Low` range, `Lights`, `Pumps`).
 
-1. Connect the spa to use these steps: 
-	* [BWA Cloud Spa Controller](https://www.hottuboutpost.com/bwa-wifi-module-for-balboa-bp-series-spa-packs-iphone-android-app-50350/)
-	* Create a userid and password and verify BWA Cloud connectivity using *BWA Spa Control iOS/Android App*
-2. Install Hubitat Package Manager (HPM) on your Hubitat Hub: 
-	* [HPM Install Documentation](https://hubitatpackagemanager.hubitatcommunity.com/)
-3. Search HPM for * **BWA Spa Manager - Cloud Control**, Install and Configure the App
-4. Separate devices will be created according to your spa's custom configuration/features to control temperature, pumps, lights, rest/ready states, mister, etc.
+  * **Full °F and °C Support:** Proper Celsius range validation (`10.0–26.5°C` low, `26.5–40.0°C` high) and `0.5°C` Balboa protocol encoding.
 
-#### Local Control by TCP (Hubitat Hub and Spa must be on the same network)
+  * **Filter Cycle & Clock Management:** Polls filter cycle schedules (`Filter1Start`, `Filter1Duration`, `Filter2Start`, `Filter2Duration`, `isFilter2Active`) and offers optional **Auto-Sync Spa Clock** when drift exceeds a configurable threshold.
 
-1. Install Hubitat Package Manager (HPM) on your Hubitat Hub:
-	* [HPM Install Documentation](https://hubitatpackagemanager.hubitatcommunity.com/)
-2. Select Install and search for * **BWA Spa Manager - Local Control**
-3. Install the device and exit HPM
-3. Manually create a Virtual Device by selecting '+ Add device' in the Hubitat devices view.  
-4. Select 'Balboa Hot Tub Local Driver.'
-5. Name the created device and input your spa's static ip address in the device's preferences. 
-6. Select 'Refresh' in the device command section to populate your hot tub's various sensor states.
+  * **Low Hub Overhead:** Deduplicates unchanged attribute events (`makeEvent`) and caches the dashboard CSS file locally on the hub while keeping `spaPanelHTML` compact under Hubitat's 1024-byte limit.
 
-### HPM Install/Upgrade FAQs:
+- ### Cloud Control
 
-#### New Installs:
-* Installing via HPM is highly recommended.  Search for **BWA Spa Manager** and select the **WA Spa Manager - Local App** version.
+  - Unsupported Legacy Application
 
-#### Previous Versions of this App:
-* If you try to upgrade a previous version via HPM and notice that your hub has multiple versions of the device drivers or libraries listed below, use HPM to uninstall the app.
-* If HPM displays an error with removing this app, use HPM's '**Package Manager Settings**' option and then select ' **Un-Match a Package** to make HPM remove any of its cached information of the previous versions of this app.   
-* Check the hub's driver code and library code views for residual files listed below. If they exist, manually delete ALL/ANY of the application's drivers, app, and library files that might still be installed.  This will allow HPM to install as a fresh new install.
-* Perform a new install via HPM.  Search for BWA Spa Manager and select the Local version to install.  HPM will automatically launch the Application and create the required spa control devices.
+---
+
+## Architecture & Data Flow (Local)
+
+```mermaid
+flowchart TD
+    App["BWA Spa Manager App - Local<br/>(IPv4 Validation, Port, Polling, Label Sync)"]
+    Parent["Balboa Hot Tub Local Driver<br/>(Parent Device: Thermostat, Switch, Fan Control)"]
+    Socket["RawSocket TCP Client<br/>(Per-session CRC cache & fast auto-close)"]
+    EW11["Elfin EW11 RS485 ↔ WiFi<br/>(LAN IP : 4257)"]
+    Spa["Balboa BP Spa Controller<br/>(Topside Panel & Relays)"]
+
+    App -->|"Creates & configures"| Parent
+    Parent <-->|"Hex frames (7E ... CRC ... 7E)"| Socket
+    Socket <-->|"TCP"| EW11
+    EW11 <-->|"RS485"| Spa
+
+    Parent -->|"Parse & CRC-8 Verify"| Parser{"Message Type"}
+    Parser -->|"0x13 Panel Status"| Status["Update Temp, Setpoint, Mode,<br/>Pumps, Lights, Blower, Clock Drift,<br/>Compact spaPanelHTML"]
+    Parser -->|"0x2E Spa Config"| Config["Detect Installed Pumps (0–6),<br/>Speeds (1/2), Lights, Blower, Mister<br/>→ Schedule getFilterSchedule()"]
+    Parser -->|"0x23 Filter Config"| Filter["Update Filter 1 & 2<br/>Start Times & Durations"]
+
+    Status -->|"Sync real on/off state"| Comp["Generic Component Switches<br/>(Alexa / Google Home / Dashboard)"]
+    Parent -->|"Optional momentary triggers"| Mom["Balboa Hot Tub Local Child Switches<br/>(Ready/Rest, High/Low, Lights, Pumps)"]
+```
+
+---
+
+## Requirements (Local)
+
+* Balboa BP-series spa equipped with one of the following:
+  * **[Elfin EW11 RS485-to-WiFi](https://community.hubitat.com/t/release-new-bwa-spa-manager-cloud-control-direct-local-tcp/151421)** *(Recommended — economical, local-only, and configurable via web UI)*
+  * **[Balboa Cloud Spa Controller (50350)](https://www.amazon.com/dp/B0C89NLVCW)** *(for Legacy Cloud Control)*
+* **[Hubitat Elevation Hub](https://hubitat.com/)**
+* **[Hubitat Package Manager (HPM)](https://hubitatpackagemanager.hubitatcommunity.com/)** *(Recommended for installation & updates)*
+
+---
+
+## Installation & Setup
+
+### Local Control by TCP (Recommended)
+
+1. Install **[Hubitat Package Manager (HPM)](https://hubitatpackagemanager.hubitatcommunity.com/)** on your Hubitat hub.
+2. In HPM, select **Install** and search for **BWA Spa Manager - Local Control** (or install the app, driver, child switch driver, and `Balboa-Hot-Tub-API-Library` + `SanderSoft-Library` manually).
+3. On your Hubitat hub, go to **Apps → Add User App** and select **BWA Spa Manager App - Local**.
+   * The app automatically creates the `Balboa Hot Tub Local Driver` parent device for you—do **not** manually create a separate virtual device.
+4. Enter your spa's static **Local IP address**, **TCP Port** (default `4257`), **Auto Polling Interval**, and whether to create momentary child switches, then click **Done**.
+5. Open the created parent device (`Balboa Hot Tub Local Driver`) and click **Configure** (this discovers your installed pumps/lights and schedules `getFilterSchedule`), then click **Refresh**.
+6. *(Optional for Alexa / Google Home)* Click **Create Child Devices** on the parent device to generate stateful `Generic Component Switch` devices for each installed pump and light.
+
+### Cloud Control (Unsupported Legacy)
+
+*Uses Balboa's Cloud Server API.*
+
+1. Connect your spa using the **BWA Cloud Spa Controller** and verify connectivity in the *BWA Spa Control* iOS/Android app.
+2. In HPM, search for **BWA Spa Manager - Cloud Control**, install, and configure the app with your BWA credentials.
+3. Separate child devices will be created automatically for your spa's temperature, pumps, lights, and modes.
+
+---
+
+## HPM Install & Upgrade FAQs
+
+* **New Installs:** Installing via HPM is strongly recommended. Search for **BWA Spa Manager** and select the **Local Control** package.
+* **Upgrading from Older Versions:** If HPM reports duplicate drivers or libraries from an earlier version:
+  1. Use HPM → **Package Manager Settings** → **Un-Match a Package** to clear cached package state if uninstall fails.
+  2. Check **Apps Code**, **Drivers Code**, and **Libraries Code** on your hub and remove any residual files from older versions.
+  3. Re-install cleanly via HPM.

@@ -53,12 +53,17 @@ library (
 @Field static final String NOTHING_TO_SEND			= '7E050ABF077E7E'
 @Field static final List SUPPORTED_PUMP_SPEED_MODES = ["off", "low", "high"]
 @Field static final List THERMO_STAT_OPERATING_STATES = ["heating", "idle", "pending heat"]
+@Field static final List THERMO_STAT_OPERATING_STATE  = ["heating", "idle", "pending heat"]
 @Field static       List SWITCH_DEVICES_OPTIONS		= ['Pump1','Pump2','Pump3','Pump4','Pump5','Pump6','Light1','Light2']
 @Field static final List THERMO_STAT_MODES			= ["heat"]
 @Field static final List THERMO_STAT_FAN_MODES 		= ["auto"]
 @Field static final Map  TEMPERATURE_VALID_RANGES_F = [
-        'low' : [50,80],
-        'high': [80,104]
+        'low' : [50, 80],
+        'high': [80, 104]
+        ]
+@Field static final Map  TEMPERATURE_VALID_RANGES_C = [
+        'low' : [10.0, 26.5],
+        'high': [26.5, 40.0]
         ]
 @Field static final Map TOGGLE_ITEM_HEX_CODE 		= [
 	'Pump1'				:'04',
@@ -150,8 +155,7 @@ String fmtHelpInfo(String str) {
         return "<div style='font-size: 160%; font-style: bold; padding: 2px 0px; text-align: center;'>${prefLink}</div>" +
             "<div style='text-align: center; position: absolute; top: 30px; right: 60px; padding: 0px;'><ul class='nav'><li>${topLink}</ul></li></div>"
     } else {
-        return "<div style='text-align: center; position: absolue; top: 0px; right: 80px; padding: 0px;'><ul class='nav'><li>${topLink}</ul></li></div>"
-
+        return "<div style='text-align: center; position: absolute; top: 0px; right: 80px; padding: 0px;'><ul class='nav'><li>${topLink}</ul></li></div>"
     }
 }
 
@@ -433,19 +437,19 @@ def logMessage(String msg) {
 }
 
 void logErr(String msg) {
-    if (!app && device.typeName == PARENT_DEVICE_NAME) makeEvent("spaSessionStatus",msg)
-    if (logLevelInfo.level>=1) log.error "${logMessage(msg)}"
+    if (!app && device?.typeName == PARENT_DEVICE_NAME) makeEvent("spaSessionStatus", msg)
+    if ((logLevelInfo?.level ?: 1) >= 1) log.error "${logMessage(msg)}"
 }
 void logWarn(String msg) {
-    if (logLevelInfo.level>=2) log.warn "${logMessage(msg)}"
+    if ((logLevelInfo?.level ?: 2) >= 2) log.warn "${logMessage(msg)}"
 }
 void logInfo(String msg) {
-    if (!app && device.typeName == PARENT_DEVICE_NAME) makeEvent("spaSessionStatus",msg)
-    if (logLevelInfo.level>=3) log.info "${logMessage(msg)}"
+    if (!app && device?.typeName == PARENT_DEVICE_NAME) makeEvent("spaSessionStatus", msg)
+    if ((logLevelInfo?.level ?: 3) >= 3) log.info "${logMessage(msg)}"
 }
 void logDebug(String msg) {
-        if (logLevelInfo.level>=4) log.debug "${logMessage(msg)}"
+    if ((logLevelInfo?.level ?: 0) >= 4) log.debug "${logMessage(msg)}"
 }
 void logTrace(String msg) {
-        if (logLevelInfo.level>=5) log.trace "${logMessage(msg)}"
+    if ((logLevelInfo?.level ?: 0) >= 5) log.trace "${logMessage(msg)}"
 }
