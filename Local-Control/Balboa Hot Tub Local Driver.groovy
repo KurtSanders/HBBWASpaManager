@@ -738,7 +738,8 @@ def parse(String message) {
     List<String> hexDataList = message.findAll(regex_pattern).unique { a, b -> a <=> b } as String[]
     logDebug "==> Found ${hexDataList.size()} important status responses"
 
-    hexDataList.eachWithIndex { it, index ->
+    for (int index = 0; index < hexDataList.size(); index++) {
+        String it = hexDataList[index]
         logDebug "Regex ${index+1}= '${it}'"
         // Track Raw Message Count
         state.rawMessageCount = (state?.rawMessageCount)?state.rawMessageCount + 1:1
@@ -746,12 +747,12 @@ def parse(String message) {
         if (state.rawMessageCount > maxRawMessages) {
             logWarn "Runaway Message Received Loop Check Exceded ${maxRawMessages} messages, exiting!"
             disconnect()
-            return
+            break
         }
         // Discard bad length packets
         if (it.length() < 5) {
             logWarn "Short response Message#: state.rawMessageCount '${it}' skipped"
-            return
+            continue
         }
 
         String messagePacket
@@ -762,7 +763,7 @@ def parse(String message) {
             msgMeta     = BALBOA_MESSAGE_TYPES[messageType]
             if (!msgMeta) {
                 logDebug "Message#${state.rawMessageCount} Unknown type '${messageType}': '${it}'"
-                return
+                continue
             }
             logDebug "==> Raw message #${state.rawMessageCount}: ${msgMeta.name}"
 
@@ -772,18 +773,18 @@ def parse(String message) {
                 if ((state.processedMessageCount ?: 0) >= maxResp) {
                     logDebug "Auto closing device socket after ${state.processedMessageCount} response messages."
                     disconnect()
-                    return
+                    break
                 }
                 logDebug "Message#${state.rawMessageCount} Important:   ${msgMeta.name}"
                 state.processedMessageCount = (state.processedMessageCount ?: 0) + 1
             } else {
                 logDebug "Message#${state.rawMessageCount} Ignored: ${msgMeta.name} '${it}'"
-                return
+                continue
             }
 
             if (state.lastMessage[messageType] == CRCByte) {
                 logDebug "<span style=color:${msgMeta.color};>Message #:${state.rawMessageCount} CRCByte ${CRCByte} is redundant with previous ${messageType} message and will be ignored!</span>"
-                return
+                continue
             }
             // Validate message integrity using CRC-8
             hexData = it[2..-5]
@@ -793,17 +794,17 @@ def parse(String message) {
                 logTrace "Checksum Byte Verification Passed for Message #${state.rawMessageCount} '${it}': ${CRCByte} <> ${cs}"
             } else {
                 logTrace "Checksum Byte Verification Failed for Message #${state.rawMessageCount} '${it}': ${CRCByte} <> ${cs}. Message #${state.rawMessageCount} Ignored."
-                return
+                continue
             }
             logTrace "Unprocessed hexData for message ${state.rawMessageCount}: ${it}"
             messagePacket = it[10..-5]
             logTrace "==> messagePacket for message ${state.rawMessageCount}: ${messagePacket}"
         } catch (java.lang.StringIndexOutOfBoundsException ex) {
             logErr "Error processing message packet: '${it}'"
-            return
+            continue
         } catch (e) {
             logErr "Error ${e} processing message packet: '${it}'"
-            return
+            continue
         }
 
         // What type of messageType have we received
@@ -812,7 +813,7 @@ def parse(String message) {
             logDebug "<span style=color:${BALBOA_MESSAGE_TYPES[messageType].color};>${BALBOA_MESSAGE_TYPES[messageType].name} Update: ${messagePacket}</span>"
         } else {
             logDebug "<span style=color:red;>Message type#: ${messageType} unknown: ${messagePacket}</span>"
-            return
+            continue
         }
         // Let's count, record and process the message if we have a registered function
         if (BALBOA_MESSAGE_TYPES[messageType].program) {
@@ -825,7 +826,7 @@ def parse(String message) {
             if ((!state.expectConfig && messageType == '13') || (state.expectConfig && messageType == '23')) {
                 logDebug "Closing socket after receiving ${BALBOA_MESSAGE_TYPES[messageType].name}."
                 disconnect()
-                return
+                break
             }
         } else {
             logDebug "No Message Handler is defined for ${BALBOA_MESSAGE_TYPES[messageType].name} for message ${state.processedMessageCount}: ${messagePacket}"
@@ -1124,13 +1125,18 @@ def parsePanelData(hexData) {
         syncComponentChild(accessory, pumpState6 != "off")
     }
 
-    // If any pump (1-6) is on, switch & Pumps = on
-    if ((decoded[11] & 0xFF) > 0 || (decoded[12] & 0x0F) > 0) {
+    // Keep Pumps reflecting physical pump activity, but keep switch off when Pump 1 is only on Low for a filter cycle
+    boolean anyPumpRunning = (decoded[11] & 0xFF) > 0 || (decoded[12] & 0x0F) > 0
+    boolean otherPumpsRunning = (decoded[11] & 0xFC) > 0 || (decoded[12] & 0x0F) > 0
+    boolean pump1High = (decoded[11] & 3) == 2
+    boolean pump1Low = (decoded[11] & 3) == 1
+    boolean filterActive = (decoded[9] & 12) != 0
+
+    makeEvent("Pumps", anyPumpRunning ? "on" : "off")
+    if (otherPumpsRunning || pump1High || (pump1Low && !filterActive)) {
         makeEvent("switch", "on")
-        makeEvent("Pumps", "on")
     } else {
         makeEvent("switch", "off")
-        makeEvent("Pumps", "off")
     }
 
     // Blower
