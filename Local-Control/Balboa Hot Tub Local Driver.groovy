@@ -25,7 +25,7 @@
 // Constants
 @Field static final String  PARENT_DEVICE_NAME   		= "Balboa Hot Tub Local Driver"
 @Field static final String  CHILD_DEVICE_NAME_SWITCH  	= "Balboa Hot Tub Local Child Switch"
-@Field static final String  VERSION 					= "2.2.1"
+@Field static final String  VERSION 					= "2.3.0"
 @Field static final String  FILENAME_CSS 				= "BalboaLocalPanelTable.css"
 @Field static final Integer READ_WAIT_SECS 				= 15
 @Field static final Integer MAX_RESPONSE_MESSAGES		= 5
@@ -141,6 +141,10 @@ preferences {
             description: fmtDesc("Automatically update spa clock if drift exceeds threshold"), required: false
         input name: "clockDriftThresholdMins", type: "number", defaultValue: 2, title: fmtTitle("Clock Drift Threshold (Minutes)"),
             description: fmtDesc("Minimum minute difference before auto-syncing clock"), required: false
+        input name: "presetTempHigh", type: "number", defaultValue: 102, range: "10..104", title: fmtTitle("Preset High Temperature"),
+            description: fmtDesc("Target spa temperature when the Preset Temp child switch is turned ON"), required: false
+        input name: "presetTempLow", type: "number", defaultValue: 80, range: "10..104", title: fmtTitle("Preset Low Temperature"),
+            description: fmtDesc("Target spa temperature when the Preset Temp child switch is turned OFF"), required: false
     }
     section ("Advanced Driver Setttings") {
         input name: "readWaitSecs", 	type: "number", defaultValue: READ_WAIT_SECS, title: fmtTitle("Advanced: Read Wait Time, secs"),
@@ -264,6 +268,7 @@ def createAllChildrenSpaSwitchs() {
     createChildren(true, CHILD_DEVICE_NAME_SWITCH, "Set Spa Pumps Off"      , [functionName: 'setPumps'    , parameter: "off"])
     createChildren(true, CHILD_DEVICE_NAME_SWITCH, "Set Spa Lights On"      , [functionName: 'setLights'   , parameter: "on"])
     createChildren(true, CHILD_DEVICE_NAME_SWITCH, "Set Spa Lights Off"     , [functionName: 'setLights'   , parameter: "off"])
+    createChildren(true, CHILD_DEVICE_NAME_SWITCH, "Spa Preset Temp (High/Low)", [functionName: 'setPresetTemp', parameter: "high", offFunctionName: 'setPresetTemp', offParameter: "low", stateful: true])
 }
 
 def createChildren(createIfDoesntExist, String type, String name, Map apiMap = null) {
@@ -572,6 +577,12 @@ def updateThermostatSetpoints(setpoint) {
 void setHeatingSetpoint(setpoint) {
     logTrace "==> setHeatingSetpoint(), waiting 5 secs for more input to updateThermostatSetpoint to ${setpoint}..."
     runIn(5, "updateThermostatSetpoints", [overwrite: true, data: setpoint])
+}
+
+void setPresetTemp(String mode) {
+    def targetTemp = (mode?.toLowerCase() == 'high') ? (settings.presetTempHigh ?: 102) : (settings.presetTempLow ?: 80)
+    logInfo "setPresetTemp(${mode}): Setting spa setpoint to ${targetTemp}${state.temperatureScale ?: '°F'}"
+    updateThermostatSetpoints(targetTemp)
 }
 
 void setTempScale(tempscale) {
@@ -1003,6 +1014,17 @@ def parsePanelData(hexData) {
         makeEvent('heatingSetpoint', targetTemperature, temperatureScale, 'target spa temperature')
         makeEvent('heatingSetpointFormatted', "${targetTemperature}${temperatureScale}")
         makeEvent('thermostatSetpoint', targetTemperature, temperatureScale, 'target spa temperature')
+    }
+    def presetCd = getChildDevice("${device.id}-Spa Preset Temp (High/Low)")
+    if (presetCd) {
+        BigDecimal highVal = (settings.presetTempHigh ?: 102).toBigDecimal()
+        BigDecimal lowVal = (settings.presetTempLow ?: 80).toBigDecimal()
+        BigDecimal targetVal = targetTemperature.toBigDecimal()
+        if (targetVal == highVal && presetCd.currentValue("switch") != "on") {
+            presetCd.sendEvent(name: "switch", value: "on")
+        } else if (targetVal == lowVal && presetCd.currentValue("switch") != "off") {
+            presetCd.sendEvent(name: "switch", value: "off")
+        }
     }
 
     String filterMode

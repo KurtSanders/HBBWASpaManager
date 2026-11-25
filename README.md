@@ -22,6 +22,7 @@
   * **Fast Poll & Auto-Close (~0.5s):** Routine `refresh()` polls close the TCP socket immediately after receiving and validating the first fresh `Panel Status Update` (`0x13`) frame, minimizing socket hold time and hub overhead.
     * **Real-Time Child Switch Sync (Alexa / Google Home / Dashboards):**
       * `Generic Component Switch` child devices (`Pump1`–`Pump6`, `Light1`–`Light2`) reflect the spa's actual live state and handle multi-speed pump cycling (`Off` / `Low` / `High`) idempotently.
+      * Stateful **Spa Preset Temp (High/Low)** child switch backed by `presetTempHigh` (default `102`) and `presetTempLow` (default `80`) preferences—toggles the spa's target temperature between High (**ON**) and Low (**OFF**) and stays synced with live setpoint updates.
       * Optional momentary `Balboa Hot Tub Local Child Switch` devices for quick Dashboard tiles, Rule Machine, and WebCore triggers (`Refresh`, `Ready`/`Rest`, `High`/`Low` range, `Lights`, `Pumps`).
 
   * **Full °F and °C Support:** Proper Celsius range validation (`10.0–26.5°C` low, `26.5–40.0°C` high) and `0.5°C` Balboa protocol encoding.
@@ -57,7 +58,7 @@ flowchart TD
     Parser -->|"0x23 Filter Config"| Filter["Update Filter 1 & 2<br/>Start Times & Durations"]
 
     Status -->|"Sync real on/off state"| Comp["Generic Component Switches<br/>(Alexa / Google Home / Dashboard)"]
-    Parent -->|"Optional momentary triggers"| Mom["Balboa Hot Tub Local Child Switches<br/>(Ready/Rest, High/Low, Lights, Pumps)"]
+    Parent -->|"Child switches (stateful & momentary)"| Mom["Balboa Hot Tub Local Child Switches<br/>(Preset High/Low Temp, Ready/Rest, High/Low, Lights, Pumps)"]
 ```
 
 ---

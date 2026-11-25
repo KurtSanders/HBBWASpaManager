@@ -21,7 +21,7 @@ import groovy.transform.Field
 
 @Field static String SWITCH_CHILD_DEVICE_NAME_PREFIX = "Balboa Hot Tub Local Child Switch"
 @Field static String PARENT_DEVICE_NAME = "Balboa Hot Tub Local Driver"
-@Field static final String VERSION = "2.0.0"
+@Field static final String VERSION = "2.1.0"
 
 metadata {
     definition (name: SWITCH_CHILD_DEVICE_NAME_PREFIX, namespace: NAMESPACE, author: "Kurt Sanders") {
@@ -54,11 +54,16 @@ void on() {
     } else {
         logErr "Error missing required state variable apiMap '${state.apiMap}' to send to parent device"
     }
-    runIn(1, 'off')
+    if (!state.apiMap?.stateful) {
+        runIn(1, 'off')
+    }
 }
 
 void off() {
-    sendEvent(name: "switch", value: "off")
+    sendEvent(name: "switch", value: "off", isStateChange: true)
+    if (state.apiMap?.offFunctionName) {
+        parent?.childRunApi(device, [functionName: state.apiMap.offFunctionName, parameter: state.apiMap.offParameter])
+    }
 }
 
 def refresh() {

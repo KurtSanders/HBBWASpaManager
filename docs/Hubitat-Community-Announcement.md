@@ -1,12 +1,16 @@
-# [RELEASE] HB BWA Spa Manager - Local Control (Direct TCP / Elfin EW11) Update
+# [RELEASE] HB BWA Spa Manager - Local Control (Direct TCP / Elfin EW11) v2.3.0
 
-I've released a major optimization and reliability update for **BWA Spa Manager - Local Control** (`Balboa Hot Tub Local Driver` v2.2.0, `BWA Spa Manager App - Local`, `Balboa Hot Tub Local Child Switch`, and `Balboa-Hot-Tub-API-Library`).
+I've released a minor feature and optimization update (**v2.3.0**) for **BWA Spa Manager - Local Control** (`Balboa Hot Tub Local Driver` v2.3.0, `Balboa Hot Tub Local Child Switch` v2.1.0, `BWA Spa Manager App - Local`, and `Balboa-Hot-Tub-API-Library`).
 
-If you're running a Balboa BP-series spa with an **Elfin EW11 RS485-to-WiFi** adapter (or local TCP bridge on port `4257`), this update makes polling significantly faster, fixes several protocol/bitmask edge cases, and adds real-time child switch synchronization for Alexa and Hubitat Dashboards.
+If you're running a Balboa BP-series spa with an **Elfin EW11 RS485-to-WiFi** adapter (or local TCP bridge on port `4257`), this update adds a stateful High/Low preset temperature child switch, makes polling significantly faster, fixes several protocol/bitmask edge cases, and adds real-time child switch synchronization for Alexa and Hubitat Dashboards.
 
 ---
 
 ### What's New & Improved
+
+* **Preset High/Low Temperature Child Switch (`Spa Preset Temp (High/Low)`):**
+  * Two new numeric preferences (**Preset High Temperature**, default `102`, and **Preset Low Temperature**, default `80`) let you define your preferred soak and standby setpoints.
+  * Turning the new **Spa Preset Temp (High/Low)** child switch **ON** sets the spa's target temperature to your High preset; turning it **OFF** sets it to your Low preset, and the switch state stays synced with live spa setpoint updates.
 
 * **~0.5s Fast-Close Polling:** Routine `refresh()` polls now close the TCP socket immediately after receiving and validating the first fresh `Panel Status Update` (`0x13`) frame instead of waiting for 5 redundant broadcasts. `configure()` and `getFilterSchedule()` still keep the socket open for `0x2E` / `0x23` responses.
 * **Real-Time Component Switch Sync (Alexa / Google Home / Dashboards):**
