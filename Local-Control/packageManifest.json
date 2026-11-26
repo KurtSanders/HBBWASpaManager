@@ -2,12 +2,12 @@
   "packageName": "BWA Spa Manager - Local Control",
   "author": "Kurt Sanders",
   "minimumHEVersion": "2.4.3",
-  "dateReleased": "2026-11-25",
-  "version": "2.3.0",
+  "dateReleased": "2026-11-26",
+  "version": "2.3.1",
   "documentationLink": "https://github.com/KurtSanders/HBBWASpaManager/blob/master/README.md",
   "communityLink": "https://community.hubitat.com/t/release-new-bwa-spa-manager-cloud-control-direct-local-tcp/151421",
   "licenseFile": "",
-  "releaseNotes": "Version 2.3.0\n• REQUIRES HPM v1.9.11 or higher for HPM install or update.\n1. Added Preset High/Low Temperature preferences (presetTempHigh, presetTempLow) and stateful 'Spa Preset Temp (High/Low)' child switch that toggles setTemp between High (ON) and Low (OFF) and stays synced with live spa setpoint updates.\n2. Fast-close TCP polling (~0.5s): closes socket immediately after receiving a fresh Panel Status Update (0x13) during routine refresh.\n3. Real-time Generic Component Switch sync for Alexa, Google Home, and Dashboards (with state-aware Pump1-6 and Light1-2 control).\n4. Added getFilterSchedule() command and automatic filter cycle polling after configure().\n5. Added optional autoSyncClock preference with configurable drift threshold.\n6. Fixed Celsius setpoint validation & 0.5°C protocol encoding, signed-byte (& 0xFF) parsing, Pump3/4/6 config bitmasks, setHeatMode(), and Lights/Pumps/Mister events.\n7. Added event deduplication, compact spaPanelHTML (<1024 bytes), and App UI enhancements (IPv4 validation, TCP port, polling interval, and momentary switch toggle).",
+  "releaseNotes": "Version 2.3.1\n• REQUIRES HPM v1.9.11 or higher for HPM install or update.\n1. Fixed Logging Off (level 0) in Balboa-Hot-Tub-API-Library so Info/Warn/Error logs are properly suppressed when Logging Level is set to Off.\n2. Prevented the parent device 'switch' attribute from turning 'on' when Pump 1 is only running on Low during an active filter cycle (while keeping 'Pumps' accurate).\n3. Fixed parse() loop exit after disconnect() to prevent duplicate 'Command complete' log entries.\n4. (v2.3.0) Added Preset High/Low Temperature preferences (presetTempHigh, presetTempLow) and stateful 'Spa Preset Temp (High/Low)' child switch.\n5. (v2.2.1) Fast-close TCP polling (~0.5s), real-time Generic Component Switch sync, getFilterSchedule(), optional autoSyncClock, full °C support, and App UI enhancements.",
   "bundles": [
     {
       "id": "2d904d10-35d6-4701-8fbf-7cd2e98722b9",

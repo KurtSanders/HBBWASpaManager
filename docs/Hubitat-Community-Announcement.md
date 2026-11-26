@@ -1,13 +1,17 @@
-# [RELEASE] HB BWA Spa Manager - Local Control (Direct TCP / Elfin EW11) v2.3.0
+# [RELEASE] HB BWA Spa Manager - Local Control (Direct TCP / Elfin EW11) v2.3.1
 
-I've released a minor feature and optimization update (**v2.3.0**) for **BWA Spa Manager - Local Control** (`Balboa Hot Tub Local Driver` v2.3.0, `Balboa Hot Tub Local Child Switch` v2.1.0, `BWA Spa Manager App - Local`, and `Balboa-Hot-Tub-API-Library`).
+I've released a maintenance and feature update (**v2.3.1**) for **BWA Spa Manager - Local Control** (`Balboa Hot Tub Local Driver` v2.3.1, `Balboa Hot Tub Local Child Switch` v2.1.0, `BWA Spa Manager App - Local`, and `Balboa-Hot-Tub-API-Library` v0.1.1).
 
-If you're running a Balboa BP-series spa with an **Elfin EW11 RS485-to-WiFi** adapter (or local TCP bridge on port `4257`), this update adds a stateful High/Low preset temperature child switch, makes polling significantly faster, fixes several protocol/bitmask edge cases, and adds real-time child switch synchronization for Alexa and Hubitat Dashboards.
+If you're running a Balboa BP-series spa with an **Elfin EW11 RS485-to-WiFi** adapter (or local TCP bridge on port `4257`), this update fixes Logging Off suppression, prevents filter-cycle Pump 1 runs from falsely flipping the parent `switch` to `on`, adds a stateful High/Low preset temperature child switch, and includes the v2.2.x/v2.3.0 polling and child switch sync improvements.
 
 ---
 
 ### What's New & Improved
 
+* **v2.3.1 Stability & Logging Fixes:**
+  * **Logging Off Fix (`Balboa-Hot-Tub-API-Library`):** Fixed Groovy's `0`-falsy evaluation in `logInfo`, `logWarn`, `logErr`, `logDebug`, and `logTrace` so setting Logging Level to **Off** (`0`) properly suppresses all driver logs.
+  * **Filter-Cycle Switch Guard:** The parent device's `switch` attribute now stays `off` when `Pump1` is only running on `Low` for an active filter cycle (while `Pumps` continues to reflect physical pump state).
+  * **Cleaner Socket Close Logging:** Updated `parse()` to exit its packet loop immediately on `disconnect()`, eliminating rare duplicate `Command complete` log entries.
 * **Preset High/Low Temperature Child Switch (`Spa Preset Temp (High/Low)`):**
   * Two new numeric preferences (**Preset High Temperature**, default `102`, and **Preset Low Temperature**, default `80`) let you define your preferred soak and standby setpoints.
   * Turning the new **Spa Preset Temp (High/Low)** child switch **ON** sets the spa's target temperature to your High preset; turning it **OFF** sets it to your Low preset, and the switch state stays synced with live spa setpoint updates.

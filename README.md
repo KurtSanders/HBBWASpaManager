@@ -1,4 +1,4 @@
-# HB BWA Spa Manager (Direct Local TCP & Legacy Cloud Control)
+# HB BWA Spa Manager (Direct Local TCP & Legacy Cloud Control) — v2.3.1
 
 <img src="https://raw.githubusercontent.com/KurtSanders/HBBWASpaManager/master/images/hot-tub.png" width="50"> Forked from [richardpowellus/HBBWASpaManager](https://github.com/richardpowellus/HBBWASpaManager)
 
@@ -27,9 +27,9 @@
 
   * **Full °F and °C Support:** Proper Celsius range validation (`10.0–26.5°C` low, `26.5–40.0°C` high) and `0.5°C` Balboa protocol encoding.
 
-  * **Filter Cycle & Clock Management:** Polls filter cycle schedules (`Filter1Start`, `Filter1Duration`, `Filter2Start`, `Filter2Duration`, `isFilter2Active`) and offers optional **Auto-Sync Spa Clock** when drift exceeds a configurable threshold.
+  * **Filter Cycle & Clock Management:** Polls filter cycle schedules (`Filter1Start`, `Filter1Duration`, `Filter2Start`, `Filter2Duration`, `isFilter2Active`), keeps the parent `switch` `off` when Pump 1 is only running on `Low` for a filter cycle (while `Pumps` reflects physical pump activity), and offers optional **Auto-Sync Spa Clock** when drift exceeds a configurable threshold.
 
-  * **Low Hub Overhead:** Deduplicates unchanged attribute events (`makeEvent`) and caches the dashboard CSS file locally on the hub while keeping `spaPanelHTML` compact under Hubitat's 1024-byte limit.
+  * **Low Hub Overhead & Clean Logging:** Deduplicates unchanged attribute events (`makeEvent`), caches the dashboard CSS file locally on the hub while keeping `spaPanelHTML` compact under Hubitat's 1024-byte limit, and cleanly honors `Logging Level: Off` (`0`).
 
 - ### Cloud Control
 

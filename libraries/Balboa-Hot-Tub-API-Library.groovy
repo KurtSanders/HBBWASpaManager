@@ -10,7 +10,7 @@ library (
     name: "Balboa-Hot-Tub-API-Library",
     namespace: "kurtsanders",
     documentationLink: "https://github.com/KurtSanders/",
-    version: "0.1.0",
+    version: "0.1.1",
     disclaimer: "This library is only for use with SanderSoft Apps and Drivers."
 )
 
@@ -438,18 +438,23 @@ def logMessage(String msg) {
 
 void logErr(String msg) {
     if (!app && device?.typeName == PARENT_DEVICE_NAME) makeEvent("spaSessionStatus", msg)
-    if ((logLevelInfo?.level ?: 1) >= 1) log.error "${logMessage(msg)}"
+    int lvl = (logLevelInfo?.level != null) ? (logLevelInfo.level as int) : 1
+    if (lvl >= 1) log.error "${logMessage(msg)}"
 }
 void logWarn(String msg) {
-    if ((logLevelInfo?.level ?: 2) >= 2) log.warn "${logMessage(msg)}"
+    int lvl = (logLevelInfo?.level != null) ? (logLevelInfo.level as int) : 2
+    if (lvl >= 2) log.warn "${logMessage(msg)}"
 }
 void logInfo(String msg) {
     if (!app && device?.typeName == PARENT_DEVICE_NAME) makeEvent("spaSessionStatus", msg)
-    if ((logLevelInfo?.level ?: 3) >= 3) log.info "${logMessage(msg)}"
+    int lvl = (logLevelInfo?.level != null) ? (logLevelInfo.level as int) : 3
+    if (lvl >= 3) log.info "${logMessage(msg)}"
 }
 void logDebug(String msg) {
-    if ((logLevelInfo?.level ?: 0) >= 4) log.debug "${logMessage(msg)}"
+    int lvl = (logLevelInfo?.level != null) ? (logLevelInfo.level as int) : 0
+    if (lvl >= 4) log.debug "${logMessage(msg)}"
 }
 void logTrace(String msg) {
-    if ((logLevelInfo?.level ?: 0) >= 5) log.trace "${logMessage(msg)}"
+    int lvl = (logLevelInfo?.level != null) ? (logLevelInfo.level as int) : 0
+    if (lvl >= 5) log.trace "${logMessage(msg)}"
 }

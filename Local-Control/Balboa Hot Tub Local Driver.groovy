@@ -25,7 +25,7 @@
 // Constants
 @Field static final String  PARENT_DEVICE_NAME   		= "Balboa Hot Tub Local Driver"
 @Field static final String  CHILD_DEVICE_NAME_SWITCH  	= "Balboa Hot Tub Local Child Switch"
-@Field static final String  VERSION 					= "2.3.0"
+@Field static final String  VERSION 					= "2.3.1"
 @Field static final String  FILENAME_CSS 				= "BalboaLocalPanelTable.css"
 @Field static final Integer READ_WAIT_SECS 				= 15
 @Field static final Integer MAX_RESPONSE_MESSAGES		= 5
